@@ -12,7 +12,8 @@ describe("api docker image", () => {
       "utf8"
     );
 
-    expect(dockerfile).toContain("docker-ce-cli");
-    expect(dockerfile).toContain("docker-compose-plugin");
+    expect(dockerfile).toContain("FROM docker:28-cli AS dockercli");
+    expect(dockerfile).toContain("COPY --from=dockercli /usr/local/bin/docker /usr/local/bin/docker");
+    expect(dockerfile).toContain("docker-compose");
   });
 });
