@@ -37,6 +37,7 @@
       <section class="panel-grid panel-grid--forms">
         <ServerConfigForm
           :model-value="serverConfig"
+          :steam-token-placeholder="serverConfig.steamTokenMasked ?? ''"
           :saving="configSaving"
           @update:model-value="serverConfig = $event"
           @save="saveConfig"
@@ -157,7 +158,7 @@ async function loadConfig() {
     const config = await getServerConfig();
     serverConfig.value = {
       ...config,
-      steamToken: config.steamTokenMasked ?? config.steamToken
+      steamToken: ""
     };
   } catch (error) {
     message.error(asMessage(error));

@@ -10,7 +10,12 @@
       <n-grid cols="2" :x-gap="12">
         <n-grid-item>
           <n-form-item label="Steam Token">
-            <n-input v-model:value="draft.steamToken" type="password" show-password-on="click" />
+            <n-input
+              v-model:value="draft.steamToken"
+              type="password"
+              show-password-on="click"
+              :placeholder="steamTokenPlaceholder || '请输入 Steam Token'"
+            />
           </n-form-item>
         </n-grid-item>
         <n-grid-item>
@@ -73,6 +78,7 @@ import type { ServerConfig } from "../api/client";
 
 const props = defineProps<{
   modelValue: ServerConfig;
+  steamTokenPlaceholder: string;
   saving: boolean;
 }>();
 

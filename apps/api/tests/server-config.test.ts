@@ -43,9 +43,11 @@ describe("server config", () => {
 
     expect(result).toMatchObject({
       steamTokenMasked: "abc***",
+      steamToken: "",
       clusterName: "Test Cluster",
       enableCaves: true
     });
+    expect(result).not.toHaveProperty("steamToken", "abc123");
     expect(
       JSON.parse(
         readFileSync(
@@ -78,6 +80,53 @@ describe("server config", () => {
 
     expect(response.status).toBe(400);
     expect(JSON.stringify(response.body)).not.toContain("abc123");
+  });
+
+  it("preserves the stored steam token when saving other fields with an empty token", async () => {
+    const projectRoot = mkdtempSync(resolve(tmpdir(), "dst-config-preserve-"));
+    tempRoots.push(projectRoot);
+
+    await writeServerConfig(projectRoot, {
+      steamToken: "abc123",
+      clusterName: "Original Cluster",
+      clusterPassword: "secret",
+      maxPlayers: 6,
+      gameMode: "survival",
+      enableCaves: true,
+      masterPort: 10999,
+      cavesPort: 11000
+    });
+
+    const response = await requestConfigRouter(
+      createConfigRouter(projectRoot) as unknown as HandleRouter,
+      "/server",
+      "PUT",
+      {
+        steamToken: "",
+        clusterName: "Updated Cluster",
+        clusterPassword: "secret",
+        maxPlayers: 8,
+        gameMode: "endless",
+        enableCaves: true,
+        masterPort: 10999,
+        cavesPort: 11000
+      }
+    );
+
+    expect(response.status).toBe(200);
+    expect(
+      JSON.parse(
+        readFileSync(
+          resolve(projectRoot, "data/cluster/admin/server-config.json"),
+          "utf8"
+        )
+      )
+    ).toMatchObject({
+      steamToken: "abc123",
+      clusterName: "Updated Cluster",
+      maxPlayers: 8,
+      gameMode: "endless"
+    });
   });
 });
 
