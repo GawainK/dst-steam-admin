@@ -1,0 +1,14 @@
+node_modules/
+dist/
+.env
+.env.*
+!.env.example
+data/**/*.log
+data/cluster/*
+!data/cluster/admin/
+data/cluster/admin/*
+!data/cluster/admin/server-config.json
+data/mods/*
+!data/mods/dedicated_server_mods_setup.lua
+!data/mods/modoverrides.lua
+.DS_Store

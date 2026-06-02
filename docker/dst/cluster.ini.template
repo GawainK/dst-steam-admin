@@ -1,0 +1,7 @@
+[GAMEPLAY]
+game_mode = {{GAME_MODE}}
+max_players = {{MAX_PLAYERS}}
+
+[NETWORK]
+cluster_name = {{CLUSTER_NAME}}
+cluster_password = {{CLUSTER_PASSWORD}}

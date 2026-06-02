@@ -1,0 +1,6 @@
+[NETWORK]
+server_port = {{SERVER_PORT}}
+
+[SHARD]
+is_master = {{IS_MASTER}}
+name = DST Steam Admin

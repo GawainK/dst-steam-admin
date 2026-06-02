@@ -1,0 +1,10 @@
+{
+  "steamToken": "",
+  "clusterName": "DST Steam Admin",
+  "clusterPassword": "",
+  "maxPlayers": 6,
+  "gameMode": "survival",
+  "enableCaves": true,
+  "masterPort": 10999,
+  "cavesPort": 11000
+}
