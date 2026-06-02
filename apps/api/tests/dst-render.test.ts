@@ -49,20 +49,23 @@ describe("dst render config script", () => {
       }
     });
 
-    expect(readFileSync(resolve(clusterRoot, "cluster.ini"), "utf8")).toContain(
+    // DST resolves <persistent_storage_root>/<conf_dir>/<cluster>; rendered files must
+    // live there, not flat under clusterRoot, or the server can't find the token file.
+    const clusterDir = resolve(clusterRoot, "DoNotStarveTogether/Cluster");
+    expect(readFileSync(resolve(clusterDir, "cluster.ini"), "utf8")).toContain(
       "cluster_name = Shard Test"
     );
-    expect(readFileSync(resolve(clusterRoot, "cluster.ini"), "utf8")).toContain(
+    expect(readFileSync(resolve(clusterDir, "cluster.ini"), "utf8")).toContain(
       "game_mode = endless"
     );
     expect(
-      readFileSync(resolve(clusterRoot, "Master/server.ini"), "utf8")
+      readFileSync(resolve(clusterDir, "Master/server.ini"), "utf8")
     ).toContain("server_port = 10999");
     expect(
-      readFileSync(resolve(clusterRoot, "cluster_token.txt"), "utf8")
+      readFileSync(resolve(clusterDir, "cluster_token.txt"), "utf8")
     ).toBe("steam-token-value\n");
     expect(
-      readFileSync(resolve(clusterRoot, "Master/modoverrides.lua"), "utf8")
+      readFileSync(resolve(clusterDir, "Master/modoverrides.lua"), "utf8")
     ).toBe("return { enabled = true }\n");
     expect(
       readFileSync(resolve(installRoot, "mods/dedicated_server_mods_setup.lua"), "utf8")
@@ -110,17 +113,18 @@ describe("dst render config script", () => {
       }
     });
 
-    expect(readFileSync(resolve(clusterRoot, "cluster.ini"), "utf8")).toContain(
+    const clusterDir = resolve(clusterRoot, "DoNotStarveTogether/Cluster");
+    expect(readFileSync(resolve(clusterDir, "cluster.ini"), "utf8")).toContain(
       "cluster_name = Config Driven Cluster"
     );
-    expect(readFileSync(resolve(clusterRoot, "cluster.ini"), "utf8")).toContain(
+    expect(readFileSync(resolve(clusterDir, "cluster.ini"), "utf8")).toContain(
       "max_players = 10"
     );
     expect(
-      readFileSync(resolve(clusterRoot, "Master/server.ini"), "utf8")
+      readFileSync(resolve(clusterDir, "Master/server.ini"), "utf8")
     ).toContain("server_port = 12345");
     expect(
-      readFileSync(resolve(clusterRoot, "cluster_token.txt"), "utf8")
+      readFileSync(resolve(clusterDir, "cluster_token.txt"), "utf8")
     ).toBe("config-token\n");
   });
 
@@ -146,6 +150,19 @@ describe("dst render config script", () => {
 
     // Game data is resolved relative to cwd; launching elsewhere breaks main.lua.
     expect(entrypoint).toContain('cd "${install_root}/bin64"');
+  });
+
+  it("passes relative -conf_dir/-cluster segments so DST does not build a doubled path", async () => {
+    const entrypoint = readFileSync(
+      resolve(repoRoot, "docker/dst/entrypoint.sh"),
+      "utf8"
+    );
+
+    // Passing an absolute -conf_dir equal to the storage root makes DST concatenate
+    // it into /var/lib/dst/cluster//var/lib/dst/cluster/... and lose the token file.
+    expect(entrypoint).not.toContain('-conf_dir "${cluster_root}"');
+    expect(entrypoint).toContain('-conf_dir "${conf_dir_name}"');
+    expect(entrypoint).toContain('-cluster "${cluster_dir_name}"');
   });
 
   it("retries SteamCMD app updates instead of failing after a single transient error", async () => {
