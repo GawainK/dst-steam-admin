@@ -30,5 +30,13 @@ Published ports:
 
 ## Notes
 
-- The provided DST image includes config rendering and startup wiring, but it does not yet bundle the actual DST server binary.
-- Until the binary is added, the shard containers stay alive with `tail -f /dev/null` so the admin stack, mounts, and config flow can still be verified.
+- The DST image now includes SteamCMD-based install/update wiring through `docker/dst/install-server.sh`.
+- On first startup, the shard containers may spend significant time downloading DST server content before the game server process becomes ready.
+- Make sure the target machine has at least `10 GiB+` download headroom and `15 GiB+` free disk space.
+
+## Tencent Cloud Lighthouse
+
+如果你准备部署到腾讯云轻量应用服务器，参考：
+
+- [docs/tencent-cloud-lighthouse.md](/Users/oukai/personal/dst-steam-admin/docs/tencent-cloud-lighthouse.md)
+- [docs/tencent-cloud-lighthouse-init-script.md](/Users/oukai/personal/dst-steam-admin/docs/tencent-cloud-lighthouse-init-script.md)

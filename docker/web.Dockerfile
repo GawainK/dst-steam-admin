@@ -10,4 +10,5 @@ RUN pnpm --filter @dst-admin/web build
 
 FROM nginx:1.27-alpine
 COPY --from=build /app/apps/web/dist /usr/share/nginx/html
+COPY docker/web.nginx.conf /etc/nginx/conf.d/default.conf
 EXPOSE 80
