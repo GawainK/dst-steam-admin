@@ -19,8 +19,8 @@ WORKDIR /opt/dst
 COPY docker/dst/entrypoint.sh /usr/local/bin/dst-entrypoint
 COPY docker/dst/install-server.sh /usr/local/bin/dst-install-server
 COPY docker/dst/render-config.sh /usr/local/bin/dst-render-config
-COPY docker/dst/cluster.ini.template /opt/dst/templates/cluster.ini.template
-COPY docker/dst/server.ini.template /opt/dst/templates/server.ini.template
+COPY docker/dst/cluster.ini.template /opt/dst-templates/cluster.ini.template
+COPY docker/dst/server.ini.template /opt/dst-templates/server.ini.template
 
 RUN chmod +x /usr/local/bin/dst-entrypoint /usr/local/bin/dst-install-server /usr/local/bin/dst-render-config
 

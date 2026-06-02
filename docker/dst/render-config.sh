@@ -18,7 +18,7 @@ read_json_scalar() {
 cluster_root="${DST_CLUSTER_ROOT:-/var/lib/dst/cluster}"
 mods_root="${DST_MODS_ROOT:-/var/lib/dst/mods}"
 install_root="${DST_INSTALL_ROOT:-/opt/dst}"
-template_root="${DST_TEMPLATE_ROOT:-/opt/dst/templates}"
+template_root="${DST_TEMPLATE_ROOT:-/opt/dst-templates}"
 shard_name="${DST_SHARD:-Master}"
 config_file="${cluster_root}/admin/server-config.json"
 cluster_name="${DST_CLUSTER_NAME:-}"

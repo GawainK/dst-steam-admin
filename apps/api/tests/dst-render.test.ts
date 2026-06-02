@@ -155,4 +155,23 @@ describe("dst render config script", () => {
     expect(compose).toContain("./data/install/master:/opt/dst");
     expect(compose).toContain("./data/install/caves:/opt/dst");
   });
+
+  it("stores ini templates outside the persisted /opt/dst install volume", async () => {
+    const dockerfile = readFileSync(
+      resolve(repoRoot, "docker/dst/Dockerfile"),
+      "utf8"
+    );
+    const renderScript = readFileSync(
+      resolve(repoRoot, "docker/dst/render-config.sh"),
+      "utf8"
+    );
+
+    // The install volume mounts over /opt/dst, so templates baked into the image
+    // must live outside it or they get shadowed at runtime.
+    expect(dockerfile).not.toContain("/opt/dst/templates");
+    expect(dockerfile).toContain("/opt/dst-templates/cluster.ini.template");
+    expect(renderScript).toContain(
+      'template_root="${DST_TEMPLATE_ROOT:-/opt/dst-templates}"'
+    );
+  });
 });
