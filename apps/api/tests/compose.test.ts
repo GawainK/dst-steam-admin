@@ -61,10 +61,10 @@ afterEach(() => {
 });
 
 describe("buildComposeCommand", () => {
-  it("maps start to the fixed compose command", () => {
+  it("maps start to the fixed compose start command", () => {
     expect(buildComposeCommand("start")).toEqual({
       command: "docker",
-      args: ["compose", "up", "-d", "dst-master", "dst-caves"]
+      args: ["compose", "start", "dst-master", "dst-caves"]
     });
   });
 

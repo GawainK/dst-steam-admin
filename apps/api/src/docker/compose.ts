@@ -59,7 +59,7 @@ export function buildComposeCommand(
     case "start":
       return {
         command: "docker",
-        args: ["compose", "up", "-d", ...DST_SERVICES]
+        args: ["compose", "start", ...DST_SERVICES]
       };
     case "stop":
       return {
