@@ -174,4 +174,15 @@ describe("dst render config script", () => {
       'template_root="${DST_TEMPLATE_ROOT:-/opt/dst-templates}"'
     );
   });
+
+  it("installs the libcurl-gnutls runtime the dedicated server binary links against", async () => {
+    const dockerfile = readFileSync(
+      resolve(repoRoot, "docker/dst/Dockerfile"),
+      "utf8"
+    );
+
+    // dontstarve_dedicated_server_nullrenderer_x64 needs libcurl-gnutls.so.4,
+    // provided by libcurl3-gnutls (distinct from libcurl4's libcurl.so.4).
+    expect(dockerfile).toContain("libcurl3-gnutls");
+  });
 });

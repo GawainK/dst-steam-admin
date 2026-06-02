@@ -10,6 +10,7 @@ RUN dpkg --add-architecture i386 \
     libgcc-s1:i386 \
     libstdc++6:i386 \
     libcurl4 \
+    libcurl3-gnutls \
     libstdc++6 \
     tar \
   && rm -rf /var/lib/apt/lists/*
