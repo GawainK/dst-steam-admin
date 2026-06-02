@@ -12,7 +12,7 @@ mkdir -p "${cluster_root}/${shard_name}" "${mods_root}" "${install_root}/mods"
 
 /usr/local/bin/dst-render-config
 
-if [ "${skip_update}" != "1" ] || [ ! -x "${install_root}/bin/dontstarve_dedicated_server_nullrenderer_x64" ]; then
+if [ "${skip_update}" != "1" ] || [ ! -x "${install_root}/bin64/dontstarve_dedicated_server_nullrenderer_x64" ]; then
   /usr/local/bin/dst-install-server
 fi
 
@@ -21,8 +21,8 @@ echo "Cluster root: ${cluster_root}"
 echo "Mods root: ${mods_root}"
 echo "Install root: ${install_root}"
 
-if [ -x "${install_root}/bin/dontstarve_dedicated_server_nullrenderer_x64" ]; then
-  exec "${install_root}/bin/dontstarve_dedicated_server_nullrenderer_x64" \
+if [ -x "${install_root}/bin64/dontstarve_dedicated_server_nullrenderer_x64" ]; then
+  exec "${install_root}/bin64/dontstarve_dedicated_server_nullrenderer_x64" \
     -persistent_storage_root "${cluster_root}" \
     -conf_dir "${cluster_root}" \
     -cluster dst-cluster \

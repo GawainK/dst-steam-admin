@@ -123,4 +123,18 @@ describe("dst render config script", () => {
       readFileSync(resolve(clusterRoot, "cluster_token.txt"), "utf8")
     ).toBe("config-token\n");
   });
+
+  it("entrypoint uses the installed bin64 dedicated server executable", async () => {
+    const entrypoint = readFileSync(
+      resolve(repoRoot, "docker/dst/entrypoint.sh"),
+      "utf8"
+    );
+
+    expect(entrypoint).toContain(
+      '${install_root}/bin64/dontstarve_dedicated_server_nullrenderer_x64'
+    );
+    expect(entrypoint).not.toContain(
+      '${install_root}/bin/dontstarve_dedicated_server_nullrenderer_x64'
+    );
+  });
 });
