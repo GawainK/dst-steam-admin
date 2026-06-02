@@ -137,4 +137,22 @@ describe("dst render config script", () => {
       '${install_root}/bin/dontstarve_dedicated_server_nullrenderer_x64'
     );
   });
+
+  it("retries SteamCMD app updates instead of failing after a single transient error", async () => {
+    const installScript = readFileSync(
+      resolve(repoRoot, "docker/dst/install-server.sh"),
+      "utf8"
+    );
+
+    expect(installScript).toContain('install_retry_count="${DST_INSTALL_RETRY_COUNT:-3}"');
+    expect(installScript).toContain("while [");
+    expect(installScript).toContain("sleep");
+  });
+
+  it("persists per-shard install directories in docker compose", async () => {
+    const compose = readFileSync(resolve(repoRoot, "docker-compose.yml"), "utf8");
+
+    expect(compose).toContain("./data/install/master:/opt/dst");
+    expect(compose).toContain("./data/install/caves:/opt/dst");
+  });
 });

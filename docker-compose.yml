@@ -36,6 +36,7 @@ services:
     volumes:
       - ./data/cluster:/var/lib/dst/cluster
       - ./data/mods:/var/lib/dst/mods
+      - ./data/install/master:/opt/dst
     ports:
       - "10999:10999/udp"
 
@@ -53,5 +54,6 @@ services:
     volumes:
       - ./data/cluster:/var/lib/dst/cluster
       - ./data/mods:/var/lib/dst/mods
+      - ./data/install/caves:/opt/dst
     ports:
       - "11000:11000/udp"
