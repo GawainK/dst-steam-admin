@@ -22,7 +22,10 @@ echo "Mods root: ${mods_root}"
 echo "Install root: ${install_root}"
 
 if [ -x "${install_root}/bin64/dontstarve_dedicated_server_nullrenderer_x64" ]; then
-  exec "${install_root}/bin64/dontstarve_dedicated_server_nullrenderer_x64" \
+  # The dedicated server resolves game data relative to its working directory,
+  # so it must be launched from inside bin64 or scripts/main.lua fails to load.
+  cd "${install_root}/bin64"
+  exec ./dontstarve_dedicated_server_nullrenderer_x64 \
     -persistent_storage_root "${cluster_root}" \
     -conf_dir "${cluster_root}" \
     -cluster dst-cluster \

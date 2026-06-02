@@ -138,6 +138,16 @@ describe("dst render config script", () => {
     );
   });
 
+  it("launches the dedicated server from the bin64 working directory", async () => {
+    const entrypoint = readFileSync(
+      resolve(repoRoot, "docker/dst/entrypoint.sh"),
+      "utf8"
+    );
+
+    // Game data is resolved relative to cwd; launching elsewhere breaks main.lua.
+    expect(entrypoint).toContain('cd "${install_root}/bin64"');
+  });
+
   it("retries SteamCMD app updates instead of failing after a single transient error", async () => {
     const installScript = readFileSync(
       resolve(repoRoot, "docker/dst/install-server.sh"),
