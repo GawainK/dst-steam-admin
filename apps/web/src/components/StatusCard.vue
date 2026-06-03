@@ -29,12 +29,14 @@ const props = defineProps<{
 
 const tagType = computed(() => {
   if (props.status.overall === "running") return "success";
+  if (props.status.overall === "starting") return "info";
   if (props.status.overall === "partial") return "warning";
   return "error";
 });
 
 const label = computed(() => {
   if (props.status.overall === "running") return "运行中";
+  if (props.status.overall === "starting") return "启动中…";
   if (props.status.overall === "partial") return "部分运行";
   return "已停止";
 });

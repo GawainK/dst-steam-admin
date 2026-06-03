@@ -217,7 +217,12 @@ async function withServerAction(
   try {
     await runner();
     await refreshStatus();
-    message.success(`服务器${actionLabel(action)}成功`);
+    if (action === "stop") {
+      message.success("服务器已停止");
+    } else {
+      // 容器拉起后游戏进程仍需数分钟加载，状态会显示「启动中…」直到真正就绪。
+      message.success(`服务器${actionLabel(action)}已触发，正在启动，请关注状态`);
+    }
   } catch (error) {
     message.error(asMessage(error));
   } finally {

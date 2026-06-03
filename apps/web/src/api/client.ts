@@ -6,7 +6,7 @@ export interface ContainerStatus {
 }
 
 export interface ServerStatus {
-  overall: "running" | "stopped" | "partial";
+  overall: "running" | "starting" | "stopped" | "partial";
   containers: ContainerStatus[];
 }
 

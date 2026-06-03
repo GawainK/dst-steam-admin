@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { parseComposeStatus } from "../src/docker/status.js";
+import { isServerReady, parseComposeStatus } from "../src/docker/status.js";
 
 describe("parseComposeStatus", () => {
   it("parses compose json array output and keeps dst containers only", () => {
@@ -104,5 +104,59 @@ describe("parseComposeStatus", () => {
         }
       ]
     });
+  });
+});
+
+describe("isServerReady", () => {
+  it("is not ready while the current run has started but no readiness marker yet", () => {
+    const logs = [
+      "dst-master-1  | Starting DST shard Master on UDP 10999",
+      "dst-master-1  | [00:00:00]: loaded modindex",
+      "dst-master-1  | [00:00:12]: Loading mod: workshop-1"
+    ].join("\n");
+
+    expect(isServerReady(logs)).toBe(false);
+  });
+
+  it("is ready once a readiness marker appears after the current run's start marker", () => {
+    const logs = [
+      "dst-master-1  | Starting DST shard Master on UDP 10999",
+      "dst-master-1  | [00:06:08]: [Shard] Starting master server",
+      "dst-master-1  | [00:06:59]: Server registered via geo DNS in ap-southeast-1"
+    ].join("\n");
+
+    expect(isServerReady(logs)).toBe(true);
+  });
+
+  it("ignores readiness markers from a previous run kept across docker restart", () => {
+    const logs = [
+      "dst-master-1  | Starting DST shard Master on UDP 10999",
+      "dst-master-1  | [00:06:59]: Server registered via geo DNS in ap-southeast-1",
+      "dst-master-1  | [99:99:99]: Sim paused",
+      // restart keeps the lines above; the new run has only just begun:
+      "dst-master-1  | Starting DST shard Master on UDP 10999",
+      "dst-master-1  | [00:00:00]: loaded modindex"
+    ].join("\n");
+
+    expect(isServerReady(logs)).toBe(false);
+  });
+
+  it("treats a run as ready once its start marker has scrolled out of the log window", () => {
+    const logs = [
+      "dst-master-1  | [12:00:00]: some long-running steady-state log",
+      "dst-caves-1  | [12:00:01]: another line"
+    ].join("\n");
+
+    expect(isServerReady(logs)).toBe(true);
+  });
+
+  it("supports custom readiness markers", () => {
+    const logs = [
+      "dst-master-1  | Starting DST shard Master on UDP 10999",
+      "dst-master-1  | [00:05:00]: world ready for players"
+    ].join("\n");
+
+    expect(isServerReady(logs)).toBe(false);
+    expect(isServerReady(logs, ["world ready for players"])).toBe(true);
   });
 });
