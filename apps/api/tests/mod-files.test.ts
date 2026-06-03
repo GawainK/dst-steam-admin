@@ -2,7 +2,13 @@ import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+
+vi.mock("../src/config/mod-names.js", () => ({
+  resolveModNames: vi.fn(async (_root: string, ids: string[]) =>
+    Object.fromEntries(ids.map((id) => [id, `name-${id}`]))
+  )
+}));
 
 import { createConfigRouter } from "../src/config/routes.js";
 import { readModFiles, writeModFiles } from "../src/config/mod-files.js";
@@ -66,6 +72,42 @@ describe("mod file service", () => {
     expect(getResponse.body).toEqual({
       setup: "ServerModSetup('workshop-1')\n",
       overrides: "return {}\n"
+    });
+  });
+});
+
+describe("结构化模组列表", () => {
+  const tempRoots: string[] = [];
+  afterEach(() => {
+    for (const root of tempRoots) rmSync(root, { recursive: true, force: true });
+  });
+
+  function seededRoot() {
+    const root = mkdtempSync(resolve(tmpdir(), "dst-mods-list-"));
+    tempRoots.push(root);
+    return root;
+  }
+
+  it("GET /mods/list 合并 setup、overrides 与名称", async () => {
+    const root = seededRoot();
+    await writeModFiles(root, {
+      setup: 'ServerModSetup("111")\nServerModSetup("222")\n',
+      overrides:
+        'return {\n  ["workshop-111"]={ enabled=true },\n  ["workshop-222"]={ enabled=false }\n}\n'
+    });
+
+    const res = await requestConfigRouter(
+      createConfigRouter(root) as unknown as HandleRouter,
+      "/mods/list",
+      "GET"
+    );
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({
+      items: [
+        { id: "111", name: "name-111", enabled: true, inSetup: true, configRaw: '["workshop-111"]={ enabled=true }' },
+        { id: "222", name: "name-222", enabled: false, inSetup: true, configRaw: '["workshop-222"]={ enabled=false }' }
+      ]
     });
   });
 });

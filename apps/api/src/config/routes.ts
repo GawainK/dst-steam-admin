@@ -2,6 +2,8 @@ import { Router } from "express";
 import { ZodError } from "zod";
 
 import { readModFiles, writeModFiles } from "./mod-files.js";
+import { resolveModNames } from "./mod-names.js";
+import { ModParseError, parseOverrides, parseSetup } from "./mods-parser.js";
 import { readServerConfig, writeServerConfig } from "./server-config.js";
 
 function toValidationBody(error: ZodError) {
@@ -49,6 +51,35 @@ export function createConfigRouter(projectRoot: string): Router {
       await writeModFiles(projectRoot, request.body);
       response.json({ ok: true });
     } catch (error) {
+      next(error);
+    }
+  });
+
+  router.get("/mods/list", async (_request, response, next) => {
+    try {
+      const files = await readModFiles(projectRoot);
+      const setupIds = parseSetup(files.setup);
+      const overrides = parseOverrides(files.overrides);
+      const ids = Array.from(new Set([...setupIds, ...overrides.map((entry) => entry.id)]));
+      const names = await resolveModNames(projectRoot, ids);
+
+      const items = ids.map((id) => {
+        const entry = overrides.find((candidate) => candidate.id === id);
+        return {
+          id,
+          name: names[id] ?? null,
+          enabled: entry?.enabled ?? false,
+          inSetup: setupIds.includes(id),
+          configRaw: entry?.raw ?? ""
+        };
+      });
+
+      response.json({ items });
+    } catch (error) {
+      if (error instanceof ModParseError) {
+        response.status(422).json({ error: error.message });
+        return;
+      }
       next(error);
     }
   });
