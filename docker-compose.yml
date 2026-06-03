@@ -40,10 +40,10 @@ services:
       context: .
       dockerfile: docker/dst/Dockerfile
     environment:
-      DST_CLUSTER_NAME: DST Steam Admin
-      DST_CLUSTER_PASSWORD: ""
-      DST_GAME_MODE: survival
-      DST_MAX_PLAYERS: "6"
+      # 房间名/密码/模式/人数等「世界配置」由后台写入的
+      # data/cluster/admin/server-config.json 提供，render-config.sh 会读取它。
+      # 这里不再写死 DST_CLUSTER_NAME 等，否则 env 会覆盖后台配置导致改了不生效。
+      # 仅保留每个分片必需的基础设施变量。
       DST_SERVER_PORT: "10999"
       DST_SHARD: Master
     volumes:
@@ -58,10 +58,8 @@ services:
       context: .
       dockerfile: docker/dst/Dockerfile
     environment:
-      DST_CLUSTER_NAME: DST Steam Admin
-      DST_CLUSTER_PASSWORD: ""
-      DST_GAME_MODE: survival
-      DST_MAX_PLAYERS: "6"
+      # 同 dst-master：房间名/密码/模式/人数由后台 server-config.json 提供，
+      # 不在此写死，避免 env 覆盖后台配置。仅保留分片基础设施变量。
       DST_SERVER_PORT: "11000"
       DST_SHARD: Caves
     volumes:
