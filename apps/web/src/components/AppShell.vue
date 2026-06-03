@@ -16,6 +16,10 @@
           <p class="hero__eyebrow">饥荒联机版专用服务器</p>
           <h1>{{ heroTitle }}</h1>
           <p class="hero__copy">{{ heroCopy }}</p>
+          <label class="hero__refresh">
+            <n-switch v-model:value="autoRefresh" size="small" />
+            <span>自动刷新（{{ Math.round(REFRESH_INTERVAL_MS / 1000) }}s）</span>
+          </label>
         </div>
         <StatusCard v-if="activeSection === 'overview'" :status="serverStatus" />
       </header>
@@ -73,10 +77,11 @@ import {
   NLayoutContent,
   NLayoutSider,
   NMenu,
+  NSwitch,
   NTag,
   useMessage
 } from "naive-ui";
-import { computed, h, onMounted, ref } from "vue";
+import { computed, h, onMounted, onUnmounted, ref } from "vue";
 
 import {
   getModsConfig,
@@ -114,6 +119,10 @@ const logsLoading = ref(false);
 const configSaving = ref(false);
 const modsSaving = ref(false);
 const busyAction = ref<"start" | "stop" | "restart" | null>(null);
+const autoRefresh = ref(true);
+const REFRESH_INTERVAL_MS = 8000;
+let refreshTimer: ReturnType<typeof setInterval> | null = null;
+let refreshInFlight = false;
 const serverConfig = ref<ServerConfig>({
   steamToken: "",
   clusterName: "",
@@ -258,7 +267,32 @@ function asMessage(error: unknown) {
   return error instanceof Error ? error.message : "请求失败";
 }
 
+async function autoRefreshTick() {
+  if (!autoRefresh.value || refreshInFlight) {
+    return;
+  }
+
+  refreshInFlight = true;
+  try {
+    const tasks = [refreshStatus()];
+    if (activeSection.value === "overview" || activeSection.value === "logs") {
+      tasks.push(refreshLogs());
+    }
+    await Promise.all(tasks);
+  } finally {
+    refreshInFlight = false;
+  }
+}
+
 onMounted(async () => {
   await Promise.all([refreshStatus(), refreshLogs(), loadConfig(), loadMods()]);
+  refreshTimer = setInterval(autoRefreshTick, REFRESH_INTERVAL_MS);
+});
+
+onUnmounted(() => {
+  if (refreshTimer !== null) {
+    clearInterval(refreshTimer);
+    refreshTimer = null;
+  }
 });
 </script>

@@ -81,6 +81,47 @@ describe("App", () => {
     expect(wrapper.find('input[type="password"]').exists()).toBe(true);
   });
 
+  it("polls the status endpoint on an interval while auto-refresh is on", async () => {
+    vi.useFakeTimers();
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        overall: "stopped",
+        containers: [],
+        content: "",
+        steamToken: "",
+        steamTokenMasked: "",
+        clusterName: "",
+        clusterPassword: "",
+        maxPlayers: 6,
+        gameMode: "survival",
+        enableCaves: true,
+        masterPort: 10999,
+        cavesPort: 11000,
+        setup: "",
+        overrides: ""
+      }),
+      text: async () => ""
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    mount(App);
+    // 冲洗初始 onMounted 的异步加载，使轮询定时器注册完成
+    await vi.advanceTimersByTimeAsync(0);
+
+    const statusCalls = () =>
+      fetchMock.mock.calls.filter((call) =>
+        String(call[0]).includes("/api/server/status")
+      ).length;
+
+    const before = statusCalls();
+    await vi.advanceTimersByTimeAsync(8000);
+
+    expect(statusCalls()).toBeGreaterThan(before);
+
+    vi.useRealTimers();
+  });
+
   it("keeps the steam token input empty while showing masked placeholder text", async () => {
     vi.stubGlobal(
       "fetch",
