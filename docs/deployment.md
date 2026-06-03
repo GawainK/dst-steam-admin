@@ -23,6 +23,22 @@ Published ports:
 - `10999/udp` for the DST master shard
 - `11000/udp` for the DST caves shard
 
+## 更新部署（仅前端改动）
+
+后台 UI（`apps/web`）改动后，服务器上只需重建 `admin-web` 一个容器，**不要重建 DST 游戏容器**（重建 `dst-master` / `dst-caves` 会触发 SteamCMD 重新下载、白白重启游戏服）：
+
+```bash
+cd ~/dst-steam-admin          # compose 固定项目名，目录约定为 ~/dst-steam-admin
+git pull origin main
+docker compose up -d --build admin-web   # 仅重建并重启前端（nginx 静态构建，必须 rebuild 才生效）
+docker compose ps
+```
+
+随后浏览器打开 `http://<服务器IP>:8080/` 并**强制刷新**（`Cmd+Shift+R` / `Ctrl+F5`）清缓存。
+
+- 未改后端 API 时 `admin-api` 无需重建。
+- 若 `git pull` 报本地改动冲突，先 `git status` 排查；通常是 `data/` 下的运行时文件（已 gitignore，不应冲突），不要直接 `git reset --hard`。
+
 ## Mounted Data
 
 - `data/cluster` stores generated cluster and shard config files
