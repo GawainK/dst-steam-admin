@@ -11,17 +11,32 @@ API runs on `http://127.0.0.1:3000` and the Vite web app runs on `http://127.0.0
 
 ## Docker Compose
 
+> ⚠️ 先配置后台鉴权再启动（见下方「后台访问鉴权」），否则 `admin-web` 会拒绝启动。
+
 ```bash
+cp .env.example .env          # 然后修改 BASIC_AUTH_PASSWORD
 docker compose up -d --build
 docker compose ps
 ```
 
 Published ports:
 
-- `8080` for the admin web UI
-- `3000` for the admin API
+- `8080` for the admin web UI（受 Basic Auth 保护）
+- `127.0.0.1:3000` for the admin API（仅本机，不对公网暴露；nginx 经 compose 内网访问）
 - `10999/udp` for the DST master shard
 - `11000/udp` for the DST caves shard
+
+## 后台访问鉴权（Basic Auth）
+
+后台 UI 与 `/api` 控制接口都由 nginx 的 Basic Auth 保护。凭据通过环境变量注入 `admin-web` 容器，启动时生成 `/etc/nginx/.htpasswd`。
+
+- 在项目根创建 `.env`（参考 `.env.example`）并设置：
+  - `BASIC_AUTH_USER`（默认 `admin`）
+  - `BASIC_AUTH_PASSWORD`（**必填**）
+- 未设置 `BASIC_AUTH_PASSWORD` 时 `admin-web` 会**主动失败退出**，避免无鉴权的后台暴露到公网。
+- 修改密码后重建前端使其生效：`docker compose up -d --build admin-web`。
+
+> 安全说明：`admin-api` 挂载了宿主机 Docker socket，拥有较高权限，因此默认只绑定 `127.0.0.1`，不要把 `3000` 改回公网发布。有公网域名时建议在前面再套一层 HTTPS。
 
 ## 更新部署（仅前端改动）
 

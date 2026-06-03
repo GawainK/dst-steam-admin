@@ -17,8 +17,10 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
       - ./data:/app/data
       - ./docker-compose.yml:/app/docker-compose.yml:ro
+    # 仅绑定到本机环回地址：admin-web 通过 compose 内网 (admin-api:3000) 访问，
+    # 无需把控制 API 暴露到公网。本机映射仅方便调试。
     ports:
-      - "3000:3000"
+      - "127.0.0.1:3000:3000"
 
   admin-web:
     build:
@@ -26,6 +28,10 @@ services:
       dockerfile: docker/web.Dockerfile
     depends_on:
       - admin-api
+    environment:
+      # 后台 Basic Auth 凭据；未设置 BASIC_AUTH_PASSWORD 时容器会拒绝启动。
+      BASIC_AUTH_USER: ${BASIC_AUTH_USER:-admin}
+      BASIC_AUTH_PASSWORD: ${BASIC_AUTH_PASSWORD:-}
     ports:
       - "8080:80"
 
