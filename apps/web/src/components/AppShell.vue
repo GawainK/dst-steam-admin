@@ -165,21 +165,25 @@ function onMenuSelect(value: string) {
   activeSection.value = value as SectionKey;
 }
 
-async function refreshStatus() {
+async function refreshStatus(silent = false) {
   try {
     serverStatus.value = await getServerStatus();
   } catch (error) {
-    message.error(asMessage(error));
+    if (!silent) {
+      message.error(asMessage(error));
+    }
   }
 }
 
-async function refreshLogs() {
+async function refreshLogs(silent = false) {
   logsLoading.value = true;
   try {
     const result = await getServerLogs();
     logs.value = result.content;
   } catch (error) {
-    message.error(asMessage(error));
+    if (!silent) {
+      message.error(asMessage(error));
+    }
   } finally {
     logsLoading.value = false;
   }
@@ -274,9 +278,9 @@ async function autoRefreshTick() {
 
   refreshInFlight = true;
   try {
-    const tasks = [refreshStatus()];
+    const tasks = [refreshStatus(true)];
     if (activeSection.value === "overview" || activeSection.value === "logs") {
-      tasks.push(refreshLogs());
+      tasks.push(refreshLogs(true));
     }
     await Promise.all(tasks);
   } finally {
