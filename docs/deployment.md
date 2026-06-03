@@ -54,6 +54,23 @@ docker compose ps
 - 未改后端 API 时 `admin-api` 无需重建。
 - 若 `git pull` 报本地改动冲突，先 `git status` 排查；通常是 `data/` 下的运行时文件（已 gitignore，不应冲突），不要直接 `git reset --hard`。
 
+## 更新部署（前端 + 后端都改动）
+
+当改动同时涉及后台 UI（`apps/web`）与 API（`apps/api`）时，需要重建 `admin-web` 与 `admin-api` **两个后台容器**，但**仍然不要重建 DST 游戏容器**（`dst-master` / `dst-caves`，重建会触发 SteamCMD 重新下载、白白重启游戏服）：
+
+```bash
+cd ~/dst-steam-admin
+git pull origin main
+docker compose up -d --build admin-web admin-api   # 只重建两个后台容器
+docker compose ps
+```
+
+然后浏览器打开 `http://<服务器IP>:8080/` 并**强制刷新**清缓存。
+
+- 不确定改了哪层时，重建这两个 admin 容器总是安全的；关键是别带上 `dst-master` / `dst-caves`。
+- 后台只负责把模组/世界配置写进 `data/` 下的文件；要让 DST 真正加载新配置，需在「总览」点重启，或 `docker compose restart dst-master dst-caves`。
+- 模组名称解析需 `admin-api` 能访问 `api.steampowered.com`（结果缓存在 `data/mods/.mod-names.json`）；访问受限时列表降级显示 Workshop ID，不影响其它功能。
+
 ## Mounted Data
 
 - `data/cluster` stores generated cluster and shard config files
