@@ -174,6 +174,46 @@ describe("结构化模组列表", () => {
     expect(del.status).toBe(404);
   });
 
+  it("GET /mods/list 返回仅在 setup 中的模组，enabled 为 false，configRaw 为空", async () => {
+    const root = seededRoot();
+    await writeModFiles(root, {
+      setup: 'ServerModSetup("888")\n',
+      overrides: "return {}\n"
+    });
+    const res = await requestConfigRouter(
+      createConfigRouter(root) as unknown as HandleRouter,
+      "/mods/list",
+      "GET"
+    );
+    expect(res.status).toBe(200);
+    const item = (res.body as { items: { id: string; inSetup: boolean; enabled: boolean; configRaw: string }[] }).items.find((i) => i.id === "888");
+    expect(item?.inSetup).toBe(true);
+    expect(item?.enabled).toBe(false);
+    expect(item?.configRaw).toBe("");
+  });
+
+  it("PATCH /mods/:id 对仅在 setup 中的模组返回 200，后续 GET 显示 enabled:true", async () => {
+    const root = seededRoot();
+    await writeModFiles(root, {
+      setup: 'ServerModSetup("888")\n',
+      overrides: "return {}\n"
+    });
+    const patch = await requestConfigRouter(
+      createConfigRouter(root) as unknown as HandleRouter,
+      "/mods/888",
+      "PATCH",
+      { enabled: true }
+    );
+    expect(patch.status).toBe(200);
+    const list = await requestConfigRouter(
+      createConfigRouter(root) as unknown as HandleRouter,
+      "/mods/list",
+      "GET"
+    );
+    const item = (list.body as { items: { id: string; enabled: boolean }[] }).items.find((i) => i.id === "888");
+    expect(item?.enabled).toBe(true);
+  });
+
   it("PATCH /mods/:id 翻转 enabled", async () => {
     const root = seededRoot();
     await writeModFiles(root, {

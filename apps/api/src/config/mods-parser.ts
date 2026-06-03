@@ -154,11 +154,15 @@ export function removeMod(files: ModFiles, id: string): ModFiles {
 }
 
 export function setEnabled(files: ModFiles, id: string, enabled: boolean): ModFiles {
-  const entries = parseOverrides(files.overrides).map((entry) =>
-    entry.id === id
-      ? { ...entry, enabled, raw: setEnabledInRaw(entry.raw, enabled) }
-      : entry
-  );
+  const existing = parseOverrides(files.overrides);
+  const hasEntry = existing.some((entry) => entry.id === id);
+  const entries = hasEntry
+    ? existing.map((entry) =>
+        entry.id === id
+          ? { ...entry, enabled, raw: setEnabledInRaw(entry.raw, enabled) }
+          : entry
+      )
+    : [...existing, { id, enabled, raw: buildEntryRaw(id, enabled) }];
   return {
     setup: files.setup,
     overrides: serializeOverrides(entries)

@@ -137,7 +137,9 @@ export function createConfigRouter(projectRoot: string): Router {
         return;
       }
       const files = await readModFiles(projectRoot);
-      const known = parseOverrides(files.overrides).some((entry) => entry.id === id);
+      const known =
+        parseSetup(files.setup).includes(id) ||
+        parseOverrides(files.overrides).some((entry) => entry.id === id);
       if (!known) {
         response.status(404).json({ error: "模组不存在" });
         return;

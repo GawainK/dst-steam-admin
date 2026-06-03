@@ -92,6 +92,15 @@ describe("增删改", () => {
     expect(parseOverrides(next.overrides).find((e) => e.id === "111")?.enabled).toBe(true);
   });
 
+  it("setEnabled 对不在 overrides 中的 id 追加新条目", () => {
+    const next = setEnabled(files, "999", true);
+    const entry = parseOverrides(next.overrides).find((e) => e.id === "999");
+    expect(entry?.enabled).toBe(true);
+    // 已有条目不受影响
+    expect(parseOverrides(next.overrides).find((e) => e.id === "111")?.enabled).toBe(true);
+    expect(parseOverrides(next.overrides).find((e) => e.id === "222")?.enabled).toBe(false);
+  });
+
   it("setEnabled 对无 enabled 字段但含 configuration_options 的条目注入正确，不损坏嵌套配置", () => {
     const filesNoEnabled = {
       setup: 'ServerModSetup("444")\n',
