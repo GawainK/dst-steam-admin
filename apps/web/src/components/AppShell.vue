@@ -11,22 +11,26 @@
       <n-menu :options="menuOptions" :value="activeSection" @update:value="onMenuSelect" />
     </n-layout-sider>
     <n-layout-content class="shell__content">
-      <header class="hero">
+      <header class="hero" :class="{ 'hero--solo': activeSection !== 'overview' }">
         <div>
           <p class="hero__eyebrow">饥荒联机版专用服务器</p>
-          <h1>总览</h1>
-          <p class="hero__copy">查看运行状态，执行启停操作，并维护基础配置与模组配置。</p>
+          <h1>{{ heroTitle }}</h1>
+          <p class="hero__copy">{{ heroCopy }}</p>
         </div>
-        <StatusCard :status="serverStatus" />
+        <StatusCard v-if="activeSection === 'overview'" :status="serverStatus" />
       </header>
 
-      <section class="panel-grid">
+      <section v-if="activeSection === 'overview'" class="panel-grid">
         <ControlPanel
           :busy-action="busyAction"
           @start="handleStart"
           @stop="handleStop"
           @restart="handleRestart"
         />
+        <LogsSummary :content="logs" @view-all="activeSection = 'logs'" />
+      </section>
+
+      <section v-else-if="activeSection === 'logs'" class="page">
         <LogsPanel
           :content="logs"
           :loading="logsLoading"
@@ -34,7 +38,7 @@
         />
       </section>
 
-      <section class="panel-grid panel-grid--forms">
+      <section v-else-if="activeSection === 'config'" class="page">
         <ServerConfigForm
           :model-value="serverConfig"
           :steam-token-placeholder="serverConfig.steamTokenMasked ?? ''"
@@ -42,6 +46,9 @@
           @update:model-value="serverConfig = $event"
           @save="saveConfig"
         />
+      </section>
+
+      <section v-else-if="activeSection === 'mods'" class="page">
         <ModsConfigPanel
           :model-value="modsConfig"
           :saving="modsSaving"
@@ -50,7 +57,9 @@
         />
       </section>
 
-      <DocsPanel :active-section="activeSection" />
+      <section v-else class="page">
+        <DocsPanel :active-section="activeSection" />
+      </section>
     </n-layout-content>
   </n-layout>
 </template>
@@ -67,7 +76,7 @@ import {
   NTag,
   useMessage
 } from "naive-ui";
-import { h, onMounted, ref } from "vue";
+import { computed, h, onMounted, ref } from "vue";
 
 import {
   getModsConfig,
@@ -86,13 +95,16 @@ import {
 import ControlPanel from "./ControlPanel.vue";
 import DocsPanel from "./DocsPanel.vue";
 import LogsPanel from "./LogsPanel.vue";
+import LogsSummary from "./LogsSummary.vue";
 import ModsConfigPanel from "./ModsConfigPanel.vue";
 import ServerConfigForm from "./ServerConfigForm.vue";
 import StatusCard from "./StatusCard.vue";
 
 const message = useMessage();
 
-const activeSection = ref("overview");
+type SectionKey = "overview" | "logs" | "config" | "mods" | "docs";
+
+const activeSection = ref<SectionKey>("overview");
 const serverStatus = ref<ServerStatus>({
   overall: "stopped",
   containers: []
@@ -125,12 +137,23 @@ const menuOptions = [
   { label: "部署说明", key: "docs", icon: renderIcon(BookOpenText) }
 ];
 
+const heroMeta: Record<SectionKey, { title: string; copy: string }> = {
+  overview: { title: "总览", copy: "查看运行状态，执行启停操作，并查看最近日志摘要。" },
+  logs: { title: "实时日志", copy: "查看最近日志输出并手动刷新。" },
+  config: { title: "世界配置", copy: "编辑房间名、密码、人数、端口等基础配置。" },
+  mods: { title: "模组配置", copy: "编辑模组安装与覆盖配置文件。" },
+  docs: { title: "部署说明", copy: "查看部署与运维命令。" }
+};
+
+const heroTitle = computed(() => heroMeta[activeSection.value]?.title ?? "总览");
+const heroCopy = computed(() => heroMeta[activeSection.value]?.copy ?? "");
+
 function renderIcon(icon: typeof TerminalSquare) {
   return () => h(icon, { size: 18 });
 }
 
 function onMenuSelect(value: string) {
-  activeSection.value = value;
+  activeSection.value = value as SectionKey;
 }
 
 async function refreshStatus() {
