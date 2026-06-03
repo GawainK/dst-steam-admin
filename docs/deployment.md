@@ -71,6 +71,48 @@ docker compose ps
 - 后台只负责把模组/世界配置写进 `data/` 下的文件；要让 DST 真正加载新配置，需在「总览」点重启，或 `docker compose restart dst-master dst-caves`。
 - 模组名称解析需 `admin-api` 能访问 `api.steampowered.com`（结果缓存在 `data/mods/.mod-names.json`）；访问受限时列表降级显示 Workshop ID，不影响其它功能。
 
+## 查看日志
+
+容器日志统一用 `docker compose logs`（在 `~/dst-steam-admin` 目录下执行）。四个服务名：`admin-web`、`admin-api`、`dst-master`、`dst-caves`。
+
+```bash
+cd ~/dst-steam-admin
+
+# 看某个服务最近 100 行
+docker compose logs --tail=100 dst-master
+
+# 实时跟随（Ctrl+C 退出）
+docker compose logs -f dst-master
+
+# 跟随并只保留最近 50 行起步，避免一次刷屏
+docker compose logs -f --tail=50 dst-caves
+
+# 同时看所有服务
+docker compose logs --tail=100
+
+# 带时间戳
+docker compose logs -t --tail=100 dst-master
+```
+
+按关键词过滤（排查常见问题）：
+
+```bash
+# 服务器是否成功上线/登记（看到 "Online: true" 和 "Server registered" 即正常）
+docker compose logs --tail=300 dst-master | grep -iE "online|register|token|E_INVALID"
+
+# 模组加载情况
+docker compose logs --tail=300 dst-master | grep -i "mod"
+
+# 后台 API 报错
+docker compose logs --tail=200 admin-api | grep -iE "error|warn"
+
+# 前端 nginx / Basic Auth 启动情况
+docker compose logs --tail=50 admin-web
+```
+
+- 已退出的容器也想看日志：`docker compose logs <服务名>` 仍可读，或 `docker compose ps -a` 先确认状态。
+- 后台 UI 的「实时日志」面板看的是 `dst-master`/`dst-caves` 的游戏日志，与上面 `docker compose logs` 等价，排查容器本身（admin-api/admin-web）启动问题时用命令行更全。
+
 ## Mounted Data
 
 - `data/cluster` stores generated cluster and shard config files
