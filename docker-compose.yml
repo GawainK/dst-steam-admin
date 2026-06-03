@@ -1,3 +1,10 @@
+# Fixed project name so the admin-api container (cwd /app) and the host CLI
+# (cwd ~/dst-steam-admin) resolve the SAME compose project and control the same
+# containers. Without it the project name defaults to the directory basename,
+# so admin-api ("app") and the CLI ("dst-steam-admin") diverge and the UI shows
+# the server as stopped even while it is running.
+name: dst-steam-admin
+
 services:
   admin-api:
     build:

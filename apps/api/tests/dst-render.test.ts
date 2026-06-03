@@ -183,6 +183,15 @@ describe("dst render config script", () => {
     expect(compose).toContain("./data/install/caves:/opt/dst");
   });
 
+  it("pins a fixed compose project name so admin-api and the host CLI agree", async () => {
+    const compose = readFileSync(resolve(repoRoot, "docker-compose.yml"), "utf8");
+
+    // Without a fixed name the project defaults to the cwd basename, so admin-api
+    // (/app) and the CLI (dst-steam-admin) target different projects and the UI
+    // reports the server as stopped while it is actually running.
+    expect(compose).toMatch(/^name:\s*dst-steam-admin\s*$/m);
+  });
+
   it("stores ini templates outside the persisted /opt/dst install volume", async () => {
     const dockerfile = readFileSync(
       resolve(repoRoot, "docker/dst/Dockerfile"),
