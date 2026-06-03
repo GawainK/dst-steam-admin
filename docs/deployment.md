@@ -81,7 +81,9 @@ git pull origin main
 docker compose up -d --build dst-master dst-caves
 ```
 
-- **不会重新下载 15 GB**：游戏本体装在 `./data/install/{master,caves}` 卷上，不在镜像里。重建镜像只重跑很轻的 COPY/apt 层；容器启动时 `install-server.sh` 会做一次 `steamcmd validate`（校验已装文件，仅补差异，几分钟），随后正常启动。
+- **不会重新下载 15 GB**：游戏本体装在 `./data/install/{master,caves}` 卷上，不在镜像里。重建镜像只重跑很轻的 COPY/apt 层。
+- **按版本更新，不每次重下**：`install-server.sh` 启动时用 `app_info_print` 取 Steam 最新 buildid，与本地 `appmanifest` 的 buildid 比对——**相同直接跳过下载**，不同（或没装/查不到）才更新。SteamCMD 自身持久化在 `./data/steamcmd/*`，所以那 ~40MB 客户端也不再每次重下。
+- **完全离线/不检查更新**：在对应 DST 服务设 `DST_SKIP_UPDATE: "1"`，启动时只要二进制已存在就完全不跑 SteamCMD（代价：不再自动更新游戏版本，需要时临时去掉该标志重建一次）。
 - 会有**几分钟的游戏服断线**（两个分片重建 + 校验期间）。
 - 这与前面「仅重启让配置生效」不同：那种只改了 `data/` 下的文件、镜像没变，用 `docker compose restart` 即可；这里改的是镜像内的脚本/模板，必须 `--build`。
 

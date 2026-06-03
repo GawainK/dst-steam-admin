@@ -46,10 +46,16 @@ services:
       # 仅保留每个分片必需的基础设施变量。
       DST_SERVER_PORT: "10999"
       DST_SHARD: Master
+      # 启动时按 buildid 比对 Steam 最新版，版本相同则跳过下载、不同才更新。
+      # 想完全离线/不检查更新，可设 DST_SKIP_UPDATE: "1"（代价：不再自动更新）。
     volumes:
       - ./data/cluster:/var/lib/dst/cluster
       - ./data/mods:/var/lib/dst/mods
       - ./data/install/master:/opt/dst
+      # 持久化 SteamCMD 自身与其 home，避免每次重建容器重下 ~40MB 客户端。
+      # 各分片独立目录，防止并发启动时 SteamCMD 互相抢锁。
+      - ./data/steamcmd/master:/opt/steamcmd
+      - ./data/steamcmd/master-home:/root/Steam
     ports:
       - "10999:10999/udp"
 
@@ -62,9 +68,13 @@ services:
       # 不在此写死，避免 env 覆盖后台配置。仅保留分片基础设施变量。
       DST_SERVER_PORT: "11000"
       DST_SHARD: Caves
+      # 同 dst-master：按 buildid 比对决定是否更新；DST_SKIP_UPDATE: "1" 可关闭检查。
     volumes:
       - ./data/cluster:/var/lib/dst/cluster
       - ./data/mods:/var/lib/dst/mods
       - ./data/install/caves:/opt/dst
+      # 独立的 SteamCMD 持久化目录（与 master 分开，避免抢锁）。
+      - ./data/steamcmd/caves:/opt/steamcmd
+      - ./data/steamcmd/caves-home:/root/Steam
     ports:
       - "11000:11000/udp"

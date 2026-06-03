@@ -239,11 +239,33 @@ describe("dst render config script", () => {
     expect(installScript).toContain("sleep");
   });
 
+  it("only downloads DST when the installed buildid differs from the latest", async () => {
+    const installScript = readFileSync(
+      resolve(repoRoot, "docker/dst/install-server.sh"),
+      "utf8"
+    );
+
+    // Reads the installed buildid from the app manifest and the latest from Steam,
+    // then short-circuits the download when they match.
+    expect(installScript).toContain("appmanifest_${app_id}.acf");
+    expect(installScript).toContain("app_info_print");
+    expect(installScript).toContain("installed_buildid");
+    expect(installScript).toContain("latest_buildid");
+    expect(installScript).toContain("skipping update");
+  });
+
   it("persists per-shard install directories in docker compose", async () => {
     const compose = readFileSync(resolve(repoRoot, "docker-compose.yml"), "utf8");
 
     expect(compose).toContain("./data/install/master:/opt/dst");
     expect(compose).toContain("./data/install/caves:/opt/dst");
+  });
+
+  it("persists per-shard SteamCMD directories so the client is not re-downloaded", async () => {
+    const compose = readFileSync(resolve(repoRoot, "docker-compose.yml"), "utf8");
+
+    expect(compose).toContain("./data/steamcmd/master:/opt/steamcmd");
+    expect(compose).toContain("./data/steamcmd/caves:/opt/steamcmd");
   });
 
   it("pins a fixed compose project name so admin-api and the host CLI agree", async () => {
