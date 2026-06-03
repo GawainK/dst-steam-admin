@@ -89,3 +89,78 @@ export function parseOverrides(text: string): OverrideEntry[] {
   }
   return entries;
 }
+
+export interface ModFiles {
+  setup: string;
+  overrides: string;
+}
+
+function setupHasId(setup: string, id: string): boolean {
+  return parseSetup(setup).includes(id);
+}
+
+function addSetupLine(setup: string, id: string): string {
+  if (setupHasId(setup, id)) return setup;
+  const line = `ServerModSetup("${id}")\n`;
+  if (setup === "" || setup.endsWith("\n")) return setup + line;
+  return `${setup}\n${line}`;
+}
+
+function removeSetupLine(setup: string, id: string): string {
+  const kept = setup
+    .split("\n")
+    .filter((rawLine) => {
+      const match = rawLine.match(/ServerModSetup\(\s*["'](?:workshop-)?(\d+)["']\s*\)/);
+      return !(match && match[1] === id);
+    });
+  return kept.join("\n");
+}
+
+function serializeOverrides(entries: OverrideEntry[]): string {
+  if (entries.length === 0) return "return {}\n";
+  const body = entries.map((entry) => `  ${entry.raw},`).join("\n");
+  return `return {\n${body}\n}\n`;
+}
+
+function buildEntryRaw(id: string, enabled: boolean): string {
+  return `["workshop-${id}"]={ enabled=${enabled} }`;
+}
+
+function setEnabledInRaw(raw: string, enabled: boolean): string {
+  if (/enabled\s*=\s*(true|false)/.test(raw)) {
+    return raw.replace(/enabled\s*=\s*(true|false)/, `enabled=${enabled}`);
+  }
+  // 没有 enabled 字段时，在值表的第一个 `{` 后注入
+  return raw.replace(/=\s*\{/, `={ enabled=${enabled},`);
+}
+
+export function addMod(files: ModFiles, id: string): ModFiles {
+  const entries = parseOverrides(files.overrides);
+  const nextEntries = entries.some((entry) => entry.id === id)
+    ? entries
+    : [...entries, { id, enabled: true, raw: buildEntryRaw(id, true) }];
+  return {
+    setup: addSetupLine(files.setup, id),
+    overrides: serializeOverrides(nextEntries)
+  };
+}
+
+export function removeMod(files: ModFiles, id: string): ModFiles {
+  const entries = parseOverrides(files.overrides).filter((entry) => entry.id !== id);
+  return {
+    setup: removeSetupLine(files.setup, id),
+    overrides: serializeOverrides(entries)
+  };
+}
+
+export function setEnabled(files: ModFiles, id: string, enabled: boolean): ModFiles {
+  const entries = parseOverrides(files.overrides).map((entry) =>
+    entry.id === id
+      ? { ...entry, enabled, raw: setEnabledInRaw(entry.raw, enabled) }
+      : entry
+  );
+  return {
+    setup: files.setup,
+    overrides: serializeOverrides(entries)
+  };
+}

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { normalizeModId, parseOverrides, parseSetup } from "../src/config/mods-parser.js";
+import { addMod, normalizeModId, parseOverrides, parseSetup, removeMod, setEnabled } from "../src/config/mods-parser.js";
 
 describe("parseSetup", () => {
   it("提取纯数字 ID，并容忍 workshop- 前缀与单双引号", () => {
@@ -51,5 +51,44 @@ describe("parseOverrides", () => {
 
   it("根表花括号不匹配时抛 ModParseError", () => {
     expect(() => parseOverrides("return {")).toThrow(/花括号|根表/);
+  });
+});
+
+describe("增删改", () => {
+  const files = {
+    setup: 'ServerModSetup("111")\nServerModSetup("222")\n',
+    overrides: `return {
+  ["workshop-111"]={ enabled=true },
+  ["workshop-222"]={ enabled=false, configuration_options={ ["k"]="v" } }
+}
+`
+  };
+
+  it("addMod 同时写入 setup 与 overrides，默认启用，幂等", () => {
+    const next = addMod(files, "333");
+    expect(parseSetup(next.setup)).toEqual(["111", "222", "333"]);
+    const entry = parseOverrides(next.overrides).find((e) => e.id === "333");
+    expect(entry?.enabled).toBe(true);
+    // 幂等：再次添加不重复
+    const again = addMod(next, "333");
+    expect(parseSetup(again.setup)).toEqual(["111", "222", "333"]);
+    expect(parseOverrides(again.overrides).filter((e) => e.id === "333")).toHaveLength(1);
+  });
+
+  it("removeMod 从两个文件移除，保留其他模组的内层配置", () => {
+    const next = removeMod(files, "111");
+    expect(parseSetup(next.setup)).toEqual(["222"]);
+    const entries = parseOverrides(next.overrides);
+    expect(entries.map((e) => e.id)).toEqual(["222"]);
+    expect(next.overrides).toContain('["k"]="v"');
+  });
+
+  it("setEnabled 只翻转目标模组的 enabled，不丢配置", () => {
+    const next = setEnabled(files, "222", true);
+    const entry = parseOverrides(next.overrides).find((e) => e.id === "222");
+    expect(entry?.enabled).toBe(true);
+    expect(next.overrides).toContain('["k"]="v"');
+    // 其他模组不受影响
+    expect(parseOverrides(next.overrides).find((e) => e.id === "111")?.enabled).toBe(true);
   });
 });
