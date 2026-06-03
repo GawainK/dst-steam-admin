@@ -110,6 +110,90 @@ describe("结构化模组列表", () => {
       ]
     });
   });
+
+  it("POST /mods 新增模组到两个文件", async () => {
+    const root = seededRoot();
+    await writeModFiles(root, { setup: "", overrides: "return {}\n" });
+
+    const post = await requestConfigRouter(
+      createConfigRouter(root) as unknown as HandleRouter,
+      "/mods",
+      "POST",
+      { id: "555" }
+    );
+    expect(post.status).toBe(200);
+
+    const list = await requestConfigRouter(
+      createConfigRouter(root) as unknown as HandleRouter,
+      "/mods/list",
+      "GET"
+    );
+    expect((list.body as { items: { id: string }[] }).items.map((i) => i.id)).toEqual(["555"]);
+  });
+
+  it("POST /mods 非法 ID 返回 400", async () => {
+    const root = seededRoot();
+    await writeModFiles(root, { setup: "", overrides: "return {}\n" });
+    const post = await requestConfigRouter(
+      createConfigRouter(root) as unknown as HandleRouter,
+      "/mods",
+      "POST",
+      { id: "abc" }
+    );
+    expect(post.status).toBe(400);
+  });
+
+  it("DELETE /mods/:id 移除模组", async () => {
+    const root = seededRoot();
+    await writeModFiles(root, {
+      setup: 'ServerModSetup("111")\n',
+      overrides: 'return {\n  ["workshop-111"]={ enabled=true }\n}\n'
+    });
+    const del = await requestConfigRouter(
+      createConfigRouter(root) as unknown as HandleRouter,
+      "/mods/111",
+      "DELETE"
+    );
+    expect(del.status).toBe(200);
+    const list = await requestConfigRouter(
+      createConfigRouter(root) as unknown as HandleRouter,
+      "/mods/list",
+      "GET"
+    );
+    expect((list.body as { items: unknown[] }).items).toEqual([]);
+  });
+
+  it("DELETE /mods/:id 不存在返回 404", async () => {
+    const root = seededRoot();
+    await writeModFiles(root, { setup: "", overrides: "return {}\n" });
+    const del = await requestConfigRouter(
+      createConfigRouter(root) as unknown as HandleRouter,
+      "/mods/777",
+      "DELETE"
+    );
+    expect(del.status).toBe(404);
+  });
+
+  it("PATCH /mods/:id 翻转 enabled", async () => {
+    const root = seededRoot();
+    await writeModFiles(root, {
+      setup: 'ServerModSetup("111")\n',
+      overrides: 'return {\n  ["workshop-111"]={ enabled=true }\n}\n'
+    });
+    const patch = await requestConfigRouter(
+      createConfigRouter(root) as unknown as HandleRouter,
+      "/mods/111",
+      "PATCH",
+      { enabled: false }
+    );
+    expect(patch.status).toBe(200);
+    const list = await requestConfigRouter(
+      createConfigRouter(root) as unknown as HandleRouter,
+      "/mods/list",
+      "GET"
+    );
+    expect((list.body as { items: { enabled: boolean }[] }).items[0].enabled).toBe(false);
+  });
 });
 
 async function requestConfigRouter(
