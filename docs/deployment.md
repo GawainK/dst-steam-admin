@@ -71,6 +71,29 @@ docker compose ps
 - 后台只负责把模组/世界配置写进 `data/` 下的文件；要让 DST 真正加载新配置，需在「总览」点重启，或 `docker compose restart dst-master dst-caves`。
 - 模组名称解析需 `admin-api` 能访问 `api.steampowered.com`（结果缓存在 `data/mods/.mod-names.json`）；访问受限时列表降级显示 Workshop ID，不影响其它功能。
 
+## 更新部署（DST 容器的脚本/模板改动）
+
+渲染脚本（`docker/dst/render-config.sh`）和 ini 模板（`cluster.ini.template` / `server.ini.template`）是 **COPY 进 DST 镜像**的，改了它们必须**重建 DST 镜像**才生效：
+
+```bash
+cd ~/dst-steam-admin
+git pull origin main
+docker compose up -d --build dst-master dst-caves
+```
+
+- **不会重新下载 15 GB**：游戏本体装在 `./data/install/{master,caves}` 卷上，不在镜像里。重建镜像只重跑很轻的 COPY/apt 层；容器启动时 `install-server.sh` 会做一次 `steamcmd validate`（校验已装文件，仅补差异，几分钟），随后正常启动。
+- 会有**几分钟的游戏服断线**（两个分片重建 + 校验期间）。
+- 这与前面「仅重启让配置生效」不同：那种只改了 `data/` 下的文件、镜像没变，用 `docker compose restart` 即可；这里改的是镜像内的脚本/模板，必须 `--build`。
+
+### 洞穴（多分片 Shard）
+
+地面（`dst-master`）和洞穴（`dst-caves`）通过 compose 内网在分片端口 `10888/udp` 互联（无需映射到宿主机）。是否启用由后台「世界配置」的**启用洞穴**开关驱动（渲染时读 `enableCaves`，默认开）。
+
+- 两个分片共享同一个 `./data/cluster` 卷，`cluster.ini` 全集群一致；`master_ip` 统一指向 compose 服务名 `dst-master`，洞穴据此找到地面。
+- 首次启用洞穴会**新生成洞穴世界**（地面存档保留），洞穴分片首启耗时较长，日志出现 `Shard server mode enabled` / 洞穴世界生成完成即正常。
+- 确认互联是否成功：`docker compose logs dst-master | grep -i shard` 应看到分片已启用、副分片已连接的字样，不再是 `Shard server mode disabled by configuration file`。
+- 如需关闭洞穴：后台关掉「启用洞穴」并 `docker compose up -d --build dst-master`，同时 `docker compose stop dst-caves`。
+
 ## 查看日志
 
 容器日志统一用 `docker compose logs`（在 `~/dst-steam-admin` 目录下执行）。四个服务名：`admin-web`、`admin-api`、`dst-master`、`dst-caves`。

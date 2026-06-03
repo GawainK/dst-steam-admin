@@ -5,3 +5,10 @@ max_players = {{MAX_PLAYERS}}
 [NETWORK]
 cluster_name = {{CLUSTER_NAME}}
 cluster_password = {{CLUSTER_PASSWORD}}
+
+[SHARD]
+shard_enabled = {{SHARD_ENABLED}}
+bind_ip = {{SHARD_BIND_IP}}
+master_ip = {{SHARD_MASTER_IP}}
+master_port = {{SHARD_MASTER_PORT}}
+cluster_key = {{SHARD_CLUSTER_KEY}}

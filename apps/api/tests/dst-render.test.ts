@@ -61,6 +61,26 @@ describe("dst render config script", () => {
     expect(
       readFileSync(resolve(clusterDir, "Master/server.ini"), "utf8")
     ).toContain("server_port = 10999");
+
+    // cluster.ini is shared by both shards (one cluster volume), so master_ip is the
+    // master service's compose DNS name for every shard; the master binds on 0.0.0.0.
+    const masterClusterIni = readFileSync(resolve(clusterDir, "cluster.ini"), "utf8");
+    expect(masterClusterIni).toContain("[SHARD]");
+    expect(masterClusterIni).toContain("shard_enabled = true");
+    expect(masterClusterIni).toContain("bind_ip = 0.0.0.0");
+    expect(masterClusterIni).toContain("master_ip = dst-master");
+    expect(masterClusterIni).toContain("master_port = 10888");
+    expect(masterClusterIni).toContain("cluster_key = dst-steam-admin-shard");
+
+    const masterServerIni = readFileSync(
+      resolve(clusterDir, "Master/server.ini"),
+      "utf8"
+    );
+    expect(masterServerIni).toContain("is_master = true");
+    expect(masterServerIni).toContain("name = Master");
+    // The master shard must not declare an id.
+    expect(masterServerIni).not.toContain("id =");
+
     expect(
       readFileSync(resolve(clusterDir, "cluster_token.txt"), "utf8")
     ).toBe("steam-token-value\n");
@@ -126,6 +146,49 @@ describe("dst render config script", () => {
     expect(
       readFileSync(resolve(clusterDir, "cluster_token.txt"), "utf8")
     ).toBe("config-token\n");
+  });
+
+  it("points the caves shard at the master service and gives it a unique id", async () => {
+    const root = mkdtempSync(resolve(tmpdir(), "dst-render-caves-"));
+    const clusterRoot = resolve(root, "cluster");
+    const modsRoot = resolve(root, "mods");
+    const installRoot = resolve(root, "install");
+    tempRoots.push(root);
+
+    mkdirSync(resolve(installRoot, "mods"), { recursive: true });
+    mkdirSync(modsRoot, { recursive: true });
+
+    await execFileAsync("sh", ["docker/dst/render-config.sh"], {
+      cwd: repoRoot,
+      env: {
+        ...process.env,
+        DST_CLUSTER_ROOT: clusterRoot,
+        DST_MODS_ROOT: modsRoot,
+        DST_INSTALL_ROOT: installRoot,
+        DST_TEMPLATE_ROOT: resolve(repoRoot, "docker/dst"),
+        DST_SHARD: "Caves",
+        DST_SERVER_PORT: "11000"
+      }
+    });
+
+    const clusterDir = resolve(clusterRoot, "DoNotStarveTogether/Cluster");
+
+    // The caves shard shares the same cluster_key but reaches the master over the
+    // compose network DNS name instead of 127.0.0.1.
+    const cavesClusterIni = readFileSync(resolve(clusterDir, "cluster.ini"), "utf8");
+    expect(cavesClusterIni).toContain("shard_enabled = true");
+    expect(cavesClusterIni).toContain("master_ip = dst-master");
+    expect(cavesClusterIni).toContain("master_port = 10888");
+    expect(cavesClusterIni).toContain("cluster_key = dst-steam-admin-shard");
+
+    const cavesServerIni = readFileSync(
+      resolve(clusterDir, "Caves/server.ini"),
+      "utf8"
+    );
+    expect(cavesServerIni).toContain("server_port = 11000");
+    expect(cavesServerIni).toContain("is_master = false");
+    expect(cavesServerIni).toContain("name = Caves");
+    expect(cavesServerIni).toContain("id = 2");
   });
 
   it("entrypoint uses the installed bin64 dedicated server executable", async () => {

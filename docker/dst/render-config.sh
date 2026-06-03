@@ -55,6 +55,31 @@ fi
 [ -n "${max_players}" ] || max_players="6"
 [ -n "${server_port}" ] || server_port="10999"
 
+# Shard (master/caves) wiring. The two shards run in separate containers but share
+# one cluster volume, so cluster.ini (written by whichever shard renders last) must be
+# identical for both. master_ip is therefore the master service's compose DNS name for
+# every shard — it is reachable from both containers, the master only binds on bind_ip
+# (0.0.0.0) and just needs caves to find it here. shard_enabled follows the admin UI's
+# enableCaves toggle (env override > server-config.json > true).
+shard_bind_ip="${DST_SHARD_BIND_IP:-0.0.0.0}"
+shard_master_port="${DST_SHARD_MASTER_PORT:-10888}"
+shard_cluster_key="${DST_SHARD_CLUSTER_KEY:-dst-steam-admin-shard}"
+shard_master_ip="${DST_SHARD_MASTER_HOST:-dst-master}"
+shard_enabled="${DST_SHARD_ENABLED:-}"
+if [ -z "${shard_enabled}" ] && [ -f "${config_file}" ]; then
+  shard_enabled="$(read_json_scalar "${config_file}" "enableCaves")"
+fi
+[ -n "${shard_enabled}" ] || shard_enabled="true"
+
+# server.ini lives in each shard's own subdirectory, so is_master / id are per-shard.
+if [ "${shard_name}" = "Master" ]; then
+  is_master="true"
+  shard_id="1"
+else
+  is_master="false"
+  shard_id="2"
+fi
+
 mkdir -p "${cluster_dir}/${shard_name}" "${install_root}/mods"
 
 sed \
@@ -62,12 +87,23 @@ sed \
   -e "s|{{CLUSTER_PASSWORD}}|${cluster_password}|g" \
   -e "s|{{GAME_MODE}}|${game_mode}|g" \
   -e "s|{{MAX_PLAYERS}}|${max_players}|g" \
+  -e "s|{{SHARD_ENABLED}}|${shard_enabled}|g" \
+  -e "s|{{SHARD_BIND_IP}}|${shard_bind_ip}|g" \
+  -e "s|{{SHARD_MASTER_IP}}|${shard_master_ip}|g" \
+  -e "s|{{SHARD_MASTER_PORT}}|${shard_master_port}|g" \
+  -e "s|{{SHARD_CLUSTER_KEY}}|${shard_cluster_key}|g" \
   "${template_root}/cluster.ini.template" > "${cluster_dir}/cluster.ini"
 
 sed \
   -e "s|{{SERVER_PORT}}|${server_port}|g" \
-  -e "s|{{IS_MASTER}}|$( [ "${shard_name}" = "Master" ] && echo true || echo false )|g" \
+  -e "s|{{IS_MASTER}}|${is_master}|g" \
+  -e "s|{{SHARD_NAME}}|${shard_name}|g" \
   "${template_root}/server.ini.template" > "${cluster_dir}/${shard_name}/server.ini"
+
+# Secondary shards need a unique numeric id; the master shard must not declare one.
+if [ "${shard_name}" != "Master" ]; then
+  printf 'id = %s\n' "${shard_id}" >> "${cluster_dir}/${shard_name}/server.ini"
+fi
 
 if [ -n "${steam_token}" ]; then
   printf '%s\n' "${steam_token}" > "${cluster_dir}/cluster_token.txt"
