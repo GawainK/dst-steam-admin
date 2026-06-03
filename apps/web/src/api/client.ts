@@ -84,3 +84,33 @@ export async function saveModsConfig(payload: ModsConfig) {
     body: JSON.stringify(payload)
   });
 }
+
+export interface ModListItem {
+  id: string;
+  name: string | null;
+  enabled: boolean;
+  inSetup: boolean;
+  configRaw: string;
+}
+
+export function getModList() {
+  return request<{ items: ModListItem[] }>("/api/config/mods/list");
+}
+
+export async function addMod(id: string) {
+  await request("/api/config/mods", {
+    method: "POST",
+    body: JSON.stringify({ id })
+  });
+}
+
+export async function removeMod(id: string) {
+  await request(`/api/config/mods/${id}`, { method: "DELETE" });
+}
+
+export async function setModEnabled(id: string, enabled: boolean) {
+  await request(`/api/config/mods/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify({ enabled })
+  });
+}
