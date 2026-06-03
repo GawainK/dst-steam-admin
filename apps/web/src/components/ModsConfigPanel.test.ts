@@ -9,6 +9,7 @@ vi.mock("../api/client", () => ({
       { id: "111", name: "Global Positions", enabled: true, inSetup: true, configRaw: "raw-111" }
     ]
   })),
+  getModsConfig: vi.fn(async () => ({ setup: "", overrides: "" })),
   addMod: vi.fn(async () => undefined),
   removeMod: vi.fn(async () => undefined),
   setModEnabled: vi.fn(async () => undefined)
@@ -41,6 +42,21 @@ describe("ModsConfigPanel", () => {
     await wrapper.vm.$nextTick();
     expect(wrapper.text()).toContain("Global Positions");
     expect(wrapper.text()).toContain("111");
+    // inSetup: true — 不应显示未下载标签
+    expect(wrapper.text()).not.toContain("未下载");
+  });
+
+  it("inSetup 为 false 时显示未下载标签", async () => {
+    (client.getModList as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      items: [
+        { id: "222", name: "Missing Mod", enabled: false, inSetup: false, configRaw: "" }
+      ]
+    });
+    const wrapper = mountWithProvider({ modelValue: { setup: "", overrides: "" }, saving: false });
+    await flush();
+    await wrapper.vm.$nextTick();
+    expect(wrapper.text()).toContain("Missing Mod");
+    expect(wrapper.text()).toContain("未下载");
   });
 
   it("点击删除调用 removeMod", async () => {

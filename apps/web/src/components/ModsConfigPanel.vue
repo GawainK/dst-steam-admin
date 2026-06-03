@@ -23,13 +23,16 @@
           <div class="mod-row">
             <div class="mod-info">
               <span class="mod-name">{{ item.name ?? `模组 ${item.id}` }}</span>
-              <a
-                class="mod-id"
-                :href="`https://steamcommunity.com/sharedfiles/filedetails/?id=${item.id}`"
-                target="_blank"
-                rel="noreferrer"
-                >{{ item.id }}</a
-              >
+              <div class="mod-id-row">
+                <a
+                  class="mod-id"
+                  :href="`https://steamcommunity.com/sharedfiles/filedetails/?id=${item.id}`"
+                  target="_blank"
+                  rel="noreferrer"
+                  >{{ item.id }}</a
+                >
+                <n-tag v-if="!item.inSetup" type="warning" size="small">未下载</n-tag>
+              </div>
             </div>
             <div class="mod-actions">
               <n-switch
@@ -87,6 +90,7 @@ import {
   NSpin,
   NSwitch,
   NTabPane,
+  NTag,
   NTabs,
   useMessage
 } from "naive-ui";
@@ -95,6 +99,7 @@ import { onMounted, reactive, ref, watch } from "vue";
 import {
   addMod as apiAddMod,
   getModList,
+  getModsConfig,
   removeMod as apiRemoveMod,
   setModEnabled,
   type ModListItem,
@@ -135,6 +140,8 @@ async function refresh() {
   loading.value = true;
   try {
     items.value = (await getModList()).items;
+    const raw = await getModsConfig();
+    emit("update:modelValue", raw);
   } catch (error) {
     message.error(asMessage(error));
   } finally {
@@ -212,6 +219,11 @@ onMounted(refresh);
 }
 .mod-name {
   font-weight: 600;
+}
+.mod-id-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 .mod-id {
   font-size: 12px;
