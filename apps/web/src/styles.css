@@ -1,10 +1,10 @@
 :root {
   font-family: "IBM Plex Sans", "PingFang SC", sans-serif;
-  color: #e7f1e8;
+  color: #f5e9df;
   background:
-    radial-gradient(circle at top left, rgba(115, 179, 128, 0.32), transparent 34%),
-    radial-gradient(circle at top right, rgba(52, 113, 129, 0.3), transparent 28%),
-    linear-gradient(160deg, #10251d 0%, #081513 44%, #07131b 100%);
+    radial-gradient(circle at 25% 15%, rgba(232, 153, 79, 0.42), transparent 45%),
+    radial-gradient(circle at 85% 85%, rgba(180, 70, 60, 0.36), transparent 42%),
+    linear-gradient(160deg, #241710 0%, #160d0b 60%, #0f0a0c 100%);
 }
 
 * {
@@ -28,9 +28,9 @@ body {
 }
 
 .shell__sider {
-  background: rgba(7, 26, 22, 0.78);
+  background: rgba(22, 13, 11, 0.8);
   backdrop-filter: blur(16px);
-  border-right: 1px solid rgba(180, 225, 198, 0.12);
+  border-right: 1px solid rgba(232, 205, 180, 0.12);
 }
 
 .shell__brand {
@@ -46,7 +46,7 @@ body {
   width: 44px;
   height: 44px;
   border-radius: 16px;
-  background: linear-gradient(135deg, #73b380, #2d8d8d);
+  background: linear-gradient(135deg, #e8994f, #c75b43);
   color: #081513;
   font-weight: 700;
 }
@@ -77,9 +77,13 @@ body {
   margin-bottom: 20px;
 }
 
+.hero--solo {
+  grid-template-columns: 1fr;
+}
+
 .hero__eyebrow {
   margin: 0 0 8px;
-  color: #9ed0b4;
+  color: #f0a860;
   text-transform: uppercase;
   letter-spacing: 0.14em;
   font-size: 12px;
@@ -109,8 +113,7 @@ body {
 
 .glass-card,
 .docs-card {
-  border: 1px solid rgba(180, 225, 198, 0.16);
-  background: rgba(12, 34, 29, 0.66);
+  border: 1px solid rgba(232, 205, 180, 0.18);
   backdrop-filter: blur(18px);
 }
 
@@ -142,8 +145,8 @@ body {
 }
 
 .log-card {
-  background: #081114;
-  border: 1px solid rgba(94, 157, 190, 0.24);
+  border: 1px solid rgba(232, 205, 180, 0.18);
+  backdrop-filter: blur(18px);
 }
 
 .log-card__content {
@@ -153,7 +156,7 @@ body {
   padding: 16px;
   border-radius: 14px;
   background: rgba(0, 0, 0, 0.32);
-  color: #b7ffcf;
+  color: #ffd9a8;
   font-family: "IBM Plex Mono", monospace;
   line-height: 1.5;
 }
@@ -162,6 +165,10 @@ body {
   margin: 0;
   white-space: pre-wrap;
   line-height: 1.6;
+}
+
+.page {
+  margin-bottom: 20px;
 }
 
 @media (max-width: 960px) {
