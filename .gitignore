@@ -12,3 +12,6 @@ data/mods/*
 !data/mods/dedicated_server_mods_setup.lua
 !data/mods/modoverrides.lua
 .DS_Store
+
+# 可视化伴随产物
+.superpowers/
