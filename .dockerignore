@@ -1,0 +1,21 @@
+# 构建上下文排除：避免把巨大的 data/（服务器上含 15GB+ DST 安装）和
+# 依赖/产物发送给 docker daemon，加快构建、避免误打包。
+.git
+.gitignore
+
+# 依赖与构建产物（镜像内会重新安装/构建）
+node_modules
+**/node_modules
+**/dist
+
+# 运行时数据：DST 安装、存档、日志、配置（通过 volume 挂载，不该进镜像）
+data
+
+# 文档与开发辅助产物
+docs
+.superpowers
+.playwright-mcp
+*.log
+.DS_Store
+.vscode
+.idea
