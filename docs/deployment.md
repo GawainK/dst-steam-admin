@@ -138,6 +138,24 @@ docker compose logs --tail=50 admin-web
 - 已退出的容器也想看日志：`docker compose logs <服务名>` 仍可读，或 `docker compose ps -a` 先确认状态。
 - 后台 UI 的「实时日志」面板看的是 `dst-master`/`dst-caves` 的游戏日志，与上面 `docker compose logs` 等价，排查容器本身（admin-api/admin-web）启动问题时用命令行更全。
 
+## 服务器状态：启动中 vs 运行中
+
+`docker compose restart` 一返回容器就是 `running`，但容器里的 DST 进程还要数分钟加载世界、连接分片。所以后台状态除了看容器是否 `running`，还会扫 `dst-master` 最近日志确认游戏进程是否**真正就绪**：
+
+- **运行中**：容器 running 且日志出现就绪标记（默认 `registered via geo DNS` 或 `Sim paused`）。
+- **启动中…**：容器 running 但本轮启动还没出现就绪标记（点完重启后会停在这里几分钟，属正常）。
+- 就绪判定锚定每轮的 `Starting DST shard Master`（entrypoint 启动时打印），只认它之后的标记，避免被 `docker restart` 保留的上一轮日志误判。
+
+如果你的服务器就绪后日志用的是别的措辞（离线/LAN、不同版本等），导致状态一直停在「启动中…」，给 `admin-api` 设环境变量覆盖标记即可（逗号或换行分隔，命中任一即算就绪），无需改代码：
+
+```yaml
+  admin-api:
+    environment:
+      DST_READY_MARKERS: "registered via geo DNS,Sim paused,你的就绪行片段"
+```
+
+改完 `docker compose up -d admin-api` 重建即可。
+
 ## Mounted Data
 
 - `data/cluster` stores generated cluster and shard config files
