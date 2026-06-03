@@ -130,8 +130,8 @@ function setEnabledInRaw(raw: string, enabled: boolean): string {
   if (/enabled\s*=\s*(true|false)/.test(raw)) {
     return raw.replace(/enabled\s*=\s*(true|false)/, `enabled=${enabled}`);
   }
-  // 没有 enabled 字段时，在值表的第一个 `{` 后注入
-  return raw.replace(/=\s*\{/, `={ enabled=${enabled},`);
+  // 匹配条目自身的值表起始 `]={`，避免误匹配嵌套的 configuration_options={
+  return raw.replace(/(\]\s*=\s*\{)/, `$1 enabled=${enabled},`);
 }
 
 export function addMod(files: ModFiles, id: string): ModFiles {

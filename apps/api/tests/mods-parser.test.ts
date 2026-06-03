@@ -91,4 +91,17 @@ describe("增删改", () => {
     // 其他模组不受影响
     expect(parseOverrides(next.overrides).find((e) => e.id === "111")?.enabled).toBe(true);
   });
+
+  it("setEnabled 对无 enabled 字段但含 configuration_options 的条目注入正确，不损坏嵌套配置", () => {
+    const filesNoEnabled = {
+      setup: 'ServerModSetup("444")\n',
+      overrides: `return {
+  ["workshop-444"]={ configuration_options={ ["speed"]=2 } }
+}
+`
+    };
+    const next = setEnabled(filesNoEnabled, "444", true);
+    expect(parseOverrides(next.overrides).find((e) => e.id === "444")?.enabled).toBe(true);
+    expect(next.overrides).toContain('["speed"]=2');
+  });
 });
