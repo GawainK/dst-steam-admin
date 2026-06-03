@@ -144,13 +144,13 @@ async function refresh() {
 
 async function onAdd() {
   const id = newId.value.trim();
-  if (!id) return;
+  if (!id || adding.value) return;
   adding.value = true;
   try {
     await apiAddMod(id);
     newId.value = "";
-    await refresh();
     message.success("已添加模组");
+    await refresh();
   } catch (error) {
     message.error(asMessage(error));
   } finally {
@@ -173,8 +173,8 @@ async function onToggle(item: ModListItem, value: boolean) {
 async function onRemove(item: ModListItem) {
   try {
     await apiRemoveMod(item.id);
-    await refresh();
     message.success("已删除模组");
+    await refresh();
   } catch (error) {
     message.error(asMessage(error));
   }

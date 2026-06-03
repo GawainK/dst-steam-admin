@@ -56,6 +56,7 @@ describe("ModsConfigPanel", () => {
     const confirm = document.body.querySelector(
       ".n-popconfirm__action .n-button--primary-type"
     ) as HTMLButtonElement | null;
+    expect(confirm).not.toBeNull();
     confirm?.click();
     await flush();
 
