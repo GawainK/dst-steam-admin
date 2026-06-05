@@ -1,5 +1,6 @@
 import express from "express";
 
+import { createBackupRouter } from "./backup/routes.js";
 import { getProjectRoot } from "./config/paths.js";
 import { createConfigRouter } from "./config/routes.js";
 import { createServerRouter } from "./server/routes.js";
@@ -18,6 +19,7 @@ export function createApp() {
 
   app.use("/api/server", createServerRouter(projectRoot));
   app.use("/api/config", createConfigRouter(projectRoot));
+  app.use("/api/backups", createBackupRouter(projectRoot));
 
   app.use(
     (
