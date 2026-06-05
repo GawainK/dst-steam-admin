@@ -156,10 +156,23 @@ docker compose logs --tail=50 admin-web
 
 改完 `docker compose up -d admin-api` 重建即可。
 
+## 存档备份与恢复
+
+后台「存档备份」面板可对世界存档做备份、恢复、下载、删除，由 `admin-api` 直接操作挂载的 `./data` 目录（纯文件操作，不经 `docker exec`）。
+
+- **备份范围**：只打包 `data/cluster/DoNotStarveTogether/Cluster/` 下的世界存档与 `cluster.ini`，**排除 `cluster_token.txt`**（避免明文 Steam 密钥进入备份包，备份可跨机器恢复）。
+- **备份存放**：宿主机 `~/dst-steam-admin/data/backups/dst-save-YYYYMMDD-HHmmss[-备注].tar.gz`。`./data` 是挂载卷，重建容器不会丢；目录首次备份时自动创建。
+- **恢复前必须先停服**：恢复会清空并完整替换当前世界。服务器仍在运行时接口直接拒绝（提示「请先停止服务器再恢复」），需先在「总览」点「停止」或 `docker compose stop dst-master dst-caves`。恢复会**保留磁盘上现有的 `cluster_token.txt`**，不会因备份不含 token 而把密钥弄丢。
+- **下载**：列表每行的「下载」直接走 nginx（受 Basic Auth 保护）把归档下载到本地，便于异地保存。
+- **损坏归档**：上传/复制损坏的 `.tar.gz` 触发恢复时返回「备份文件已损坏或为空」，且**不会破坏现有存档**（解压在临时目录校验通过后才替换）。
+
+> 运维提示：备份/恢复都不影响 DST 镜像，无需重建游戏容器。手动备份也可直接在宿主机打包 `data/cluster/DoNotStarveTogether/Cluster`（记得排除 `cluster_token.txt`）。`data/backups` 会随备份增多占用磁盘，按需手动清理或在面板里删除旧备份。
+
 ## Mounted Data
 
 - `data/cluster` stores generated cluster and shard config files
 - `data/mods` stores `dedicated_server_mods_setup.lua` and `modoverrides.lua`
+- `data/backups` stores world-save backup archives (`*.tar.gz`，不含 Steam token)
 
 ## Notes
 
