@@ -2,10 +2,7 @@ import { promises as fs } from "node:fs";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-
-const runComposeMock = vi.hoisted(() => vi.fn());
-vi.mock("../src/docker/compose.js", () => ({ runCompose: runComposeMock }));
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { createBackup, listBackups } from "../src/backup/service.js";
 
@@ -25,7 +22,6 @@ async function seedSave(files: Record<string, string>) {
 
 beforeEach(async () => {
   projectRoot = await fs.mkdtemp(resolve(tmpdir(), "dst-backup-"));
-  runComposeMock.mockReset();
 });
 
 afterEach(async () => {
@@ -62,6 +58,7 @@ describe("createBackup", () => {
 
   it("存档为空时报错", async () => {
     await expect(createBackup(projectRoot)).rejects.toThrow("暂无可备份的存档");
+    await expect(createBackup(projectRoot)).rejects.toMatchObject({ status: 409 });
   });
 });
 
@@ -76,6 +73,8 @@ describe("listBackups", () => {
     await fs.writeFile(resolve(dir, "dst-save-20260101-000000.tar.gz"), "a");
     await fs.writeFile(resolve(dir, "dst-save-20260202-000000.tar.gz"), "bb");
     await fs.writeFile(resolve(dir, "notes.txt"), "ignore");
+    await fs.utimes(resolve(dir, "dst-save-20260101-000000.tar.gz"), new Date("2026-01-01T00:00:00Z"), new Date("2026-01-01T00:00:00Z"));
+    await fs.utimes(resolve(dir, "dst-save-20260202-000000.tar.gz"), new Date("2026-02-02T00:00:00Z"), new Date("2026-02-02T00:00:00Z"));
 
     const items = await listBackups(projectRoot);
 
