@@ -40,8 +40,8 @@ function slugLabel(label?: string): string {
     .trim()
     .toLowerCase()
     .replace(/[^\w-]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 32);
+    .slice(0, 32)
+    .replace(/^-+|-+$/g, "");
   return slug ? `-${slug}` : "";
 }
 
@@ -50,7 +50,10 @@ export async function listBackups(projectRoot: string): Promise<BackupEntry[]> {
   let names: string[];
   try {
     names = await fs.readdir(dir);
-  } catch {
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
+      throw error;
+    }
     return [];
   }
 
@@ -72,8 +75,12 @@ export async function createBackup(
   const src = saveDir(projectRoot);
   let entries: string[];
   try {
+    // cluster_token.txt 只存在于 Cluster 根目录，顶层过滤即可排除 Steam 密钥
     entries = (await fs.readdir(src)).filter((entry) => entry !== TOKEN_FILENAME);
-  } catch {
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
+      throw error;
+    }
     entries = [];
   }
   if (entries.length === 0) {

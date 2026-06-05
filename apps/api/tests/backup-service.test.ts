@@ -57,8 +57,10 @@ describe("createBackup", () => {
   });
 
   it("存档为空时报错", async () => {
-    await expect(createBackup(projectRoot)).rejects.toThrow("暂无可备份的存档");
-    await expect(createBackup(projectRoot)).rejects.toMatchObject({ status: 409 });
+    await expect(createBackup(projectRoot)).rejects.toMatchObject({
+      message: "暂无可备份的存档",
+      status: 409
+    });
   });
 });
 
