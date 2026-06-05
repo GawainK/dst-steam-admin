@@ -4,6 +4,7 @@ const listBackupsMock = vi.hoisted(() => vi.fn());
 const createBackupMock = vi.hoisted(() => vi.fn());
 const restoreBackupMock = vi.hoisted(() => vi.fn());
 const deleteBackupMock = vi.hoisted(() => vi.fn());
+const resolveBackupPathMock = vi.hoisted(() => vi.fn());
 const BackupError = vi.hoisted(
   () =>
     class BackupError extends Error {
@@ -22,7 +23,7 @@ vi.mock("../src/backup/service.js", () => ({
   createBackup: createBackupMock,
   restoreBackup: restoreBackupMock,
   deleteBackup: deleteBackupMock,
-  resolveBackupPath: vi.fn()
+  resolveBackupPath: resolveBackupPathMock
 }));
 
 import { createBackupRouter } from "../src/backup/routes.js";
@@ -79,6 +80,13 @@ describe("backup routes", () => {
   it("DELETE /:name 不存在返回 404", async () => {
     deleteBackupMock.mockRejectedValue(new BackupError("备份不存在", 404));
     const res = await call("/a.tar.gz", "DELETE", undefined, { name: "a.tar.gz" });
+    expect(res.status).toBe(404);
+    expect(res.body).toEqual({ error: "备份不存在" });
+  });
+
+  it("GET /:name/download 文件不存在返回 404", async () => {
+    resolveBackupPathMock.mockReturnValue("/nonexistent/does-not-exist.tar.gz");
+    const res = await call("/a.tar.gz/download", "GET", undefined, { name: "a.tar.gz" });
     expect(res.status).toBe(404);
     expect(res.body).toEqual({ error: "备份不存在" });
   });

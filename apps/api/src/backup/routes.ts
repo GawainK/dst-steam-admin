@@ -1,5 +1,6 @@
 import type { NextFunction, Response } from "express";
 import { Router } from "express";
+import { promises as fs } from "node:fs";
 
 import {
   BackupError,
@@ -57,9 +58,15 @@ export function createBackupRouter(projectRoot: string): Router {
     }
   });
 
-  router.get("/:name/download", (request, response, next) => {
+  router.get("/:name/download", async (request, response, next) => {
     try {
-      response.download(resolveBackupPath(projectRoot, request.params.name));
+      const filePath = resolveBackupPath(projectRoot, request.params.name);
+      try {
+        await fs.access(filePath);
+      } catch {
+        throw new BackupError("备份不存在", 404);
+      }
+      response.download(filePath);
     } catch (error) {
       handleError(error, response, next);
     }
