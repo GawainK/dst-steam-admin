@@ -1,5 +1,5 @@
 import { promises as fs } from "node:fs";
-import { resolve } from "node:path";
+import { isAbsolute, relative, resolve } from "node:path";
 import * as tar from "tar";
 
 export interface BackupEntry {
@@ -95,4 +95,26 @@ export async function createBackup(
 
   const stat = await fs.stat(file);
   return { name, createdAt: stat.mtime.toISOString(), size: stat.size };
+}
+
+export function resolveBackupPath(projectRoot: string, name: string): string {
+  if (!NAME_PATTERN.test(name)) {
+    throw new BackupError("无效的备份文件名", 400);
+  }
+  const dir = backupDir(projectRoot);
+  const full = resolve(dir, name);
+  const rel = relative(dir, full);
+  if (rel === "" || rel.startsWith("..") || isAbsolute(rel)) {
+    throw new BackupError("无效的备份文件名", 400);
+  }
+  return full;
+}
+
+export async function deleteBackup(projectRoot: string, name: string): Promise<void> {
+  const path = resolveBackupPath(projectRoot, name);
+  try {
+    await fs.unlink(path);
+  } catch {
+    throw new BackupError("备份不存在", 404);
+  }
 }

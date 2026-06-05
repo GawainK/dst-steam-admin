@@ -4,7 +4,7 @@ import { resolve } from "node:path";
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { createBackup, listBackups } from "../src/backup/service.js";
+import { createBackup, deleteBackup, listBackups, resolveBackupPath } from "../src/backup/service.js";
 
 let projectRoot: string;
 
@@ -85,5 +85,38 @@ describe("listBackups", () => {
       "dst-save-20260101-000000.tar.gz"
     ]);
     expect(items[0].size).toBe(2);
+  });
+});
+
+describe("resolveBackupPath", () => {
+  it("合法名返回 data/backups 内的绝对路径", () => {
+    const path = resolveBackupPath(projectRoot, "dst-save-20260101-000000.tar.gz");
+    expect(path).toBe(
+      resolve(projectRoot, "data/backups", "dst-save-20260101-000000.tar.gz")
+    );
+  });
+
+  it("非法名（路径穿越/非 tar.gz）抛错", () => {
+    expect(() => resolveBackupPath(projectRoot, "../secret")).toThrow();
+    expect(() => resolveBackupPath(projectRoot, "evil.sh")).toThrow();
+    expect(() => resolveBackupPath(projectRoot, "a/b.tar.gz")).toThrow();
+  });
+});
+
+describe("deleteBackup", () => {
+  it("删除存在的备份", async () => {
+    const dir = resolve(projectRoot, "data/backups");
+    await fs.mkdir(dir, { recursive: true });
+    await fs.writeFile(resolve(dir, "dst-save-20260101-000000.tar.gz"), "a");
+    await deleteBackup(projectRoot, "dst-save-20260101-000000.tar.gz");
+    await expect(
+      fs.access(resolve(dir, "dst-save-20260101-000000.tar.gz"))
+    ).rejects.toThrow();
+  });
+
+  it("删除不存在的备份抛 404", async () => {
+    await expect(
+      deleteBackup(projectRoot, "dst-save-20260101-000000.tar.gz")
+    ).rejects.toMatchObject({ status: 404 });
   });
 });
