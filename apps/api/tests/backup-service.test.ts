@@ -97,9 +97,12 @@ describe("resolveBackupPath", () => {
   });
 
   it("非法名（路径穿越/非 tar.gz）抛错", () => {
-    expect(() => resolveBackupPath(projectRoot, "../secret")).toThrow();
-    expect(() => resolveBackupPath(projectRoot, "evil.sh")).toThrow();
-    expect(() => resolveBackupPath(projectRoot, "a/b.tar.gz")).toThrow();
+    for (const bad of ["../secret", "evil.sh", "a/b.tar.gz"]) {
+      expect(() => resolveBackupPath(projectRoot, bad)).toThrow();
+      expect(() => resolveBackupPath(projectRoot, bad)).toThrow(
+        expect.objectContaining({ status: 400 })
+      );
+    }
   });
 });
 

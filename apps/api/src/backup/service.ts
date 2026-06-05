@@ -104,6 +104,7 @@ export function resolveBackupPath(projectRoot: string, name: string): string {
   const dir = backupDir(projectRoot);
   const full = resolve(dir, name);
   const rel = relative(dir, full);
+  // NAME_PATTERN 已保证 name 非空且不含分隔符，rel === "" 仅作纵深防御
   if (rel === "" || rel.startsWith("..") || isAbsolute(rel)) {
     throw new BackupError("无效的备份文件名", 400);
   }
@@ -111,10 +112,13 @@ export function resolveBackupPath(projectRoot: string, name: string): string {
 }
 
 export async function deleteBackup(projectRoot: string, name: string): Promise<void> {
-  const path = resolveBackupPath(projectRoot, name);
+  const filePath = resolveBackupPath(projectRoot, name);
   try {
-    await fs.unlink(path);
-  } catch {
+    await fs.unlink(filePath);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
+      throw error;
+    }
     throw new BackupError("备份不存在", 404);
   }
 }
