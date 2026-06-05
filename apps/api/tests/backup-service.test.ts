@@ -168,4 +168,19 @@ describe("restoreBackup", () => {
       restoreBackup(projectRoot, "dst-save-20260101-000000.tar.gz")
     ).rejects.toMatchObject({ status: 404 });
   });
+
+  it("损坏的归档抛 422 且不破坏现有存档", async () => {
+    runComposeMock.mockResolvedValue({ stdout: STOPPED, stderr: "" });
+    await seedSave({ "cluster.ini": "OLD" });
+    const badName = "dst-save-20260101-120000.tar.gz";
+    const dir = resolve(projectRoot, "data/backups");
+    await fs.mkdir(dir, { recursive: true });
+    await fs.writeFile(resolve(dir, badName), "not a real gzip archive");
+
+    await expect(restoreBackup(projectRoot, badName)).rejects.toMatchObject({ status: 422 });
+
+    // 解压失败发生在清空之前：现有存档必须原样保留
+    const src = resolve(projectRoot, SAVE_REL);
+    expect(await fs.readFile(resolve(src, "cluster.ini"), "utf8")).toBe("OLD");
+  });
 });

@@ -157,7 +157,15 @@ export async function restoreBackup(projectRoot: string, name: string): Promise<
   );
   await fs.mkdir(tmp, { recursive: true });
   try {
-    await tar.extract({ file: archive, cwd: tmp });
+    try {
+      await tar.extract({ file: archive, cwd: tmp });
+    } catch (error) {
+      // 损坏/非法归档：tar 抛原始错误，归一为 422（此时尚未清空存档）
+      if (error instanceof BackupError) {
+        throw error;
+      }
+      throw new BackupError("备份文件已损坏或为空", 422);
+    }
     const extracted = await fs.readdir(tmp);
     if (extracted.length === 0) {
       throw new BackupError("备份文件已损坏或为空", 422);
