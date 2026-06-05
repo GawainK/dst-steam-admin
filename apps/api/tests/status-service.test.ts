@@ -13,7 +13,7 @@ const STOPPED_STATUS = JSON.stringify([
   { Service: "dst-master", Name: "x-dst-master-1", State: "exited", Status: "Exited", Publishers: null },
   { Service: "dst-caves", Name: "x-dst-caves-1", State: "exited", Status: "Exited", Publishers: null }
 ]);
-const READY_LOGS = "Starting DST shard Master\n[00:06:59]: Server registered via geo DNS in ap-southeast-1";
+const READY_LOGS = "Starting DST shard Master\n[00:06:59]: Server registered via geo DNS";
 const STARTING_LOGS = "Starting DST shard Master\n[00:00:00]: loaded modindex";
 
 function mockCompose(statusOut: string, logsOut = STARTING_LOGS) {
@@ -64,7 +64,8 @@ describe("getServerStatus readiness latch", () => {
     expect((await getServerStatus("/root")).overall).toBe("stopped");
     mockCompose(RUNNING_STATUS, READY_LOGS);
     runComposeMock.mockClear();
-    await getServerStatus("/root");
+    const status = await getServerStatus("/root");
+    expect(status.overall).toBe("running");
     expect(logCalls()).toHaveLength(1);
   });
 
