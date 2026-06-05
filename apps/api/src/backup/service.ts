@@ -2,6 +2,9 @@ import { promises as fs } from "node:fs";
 import { isAbsolute, relative, resolve } from "node:path";
 import * as tar from "tar";
 
+import { runCompose } from "../docker/compose.js";
+import { parseComposeStatus } from "../docker/status.js";
+
 export interface BackupEntry {
   name: string;
   createdAt: string; // ISO
@@ -120,5 +123,64 @@ export async function deleteBackup(projectRoot: string, name: string): Promise<v
       throw error;
     }
     throw new BackupError("备份不存在", 404);
+  }
+}
+
+export async function restoreBackup(projectRoot: string, name: string): Promise<void> {
+  const archive = resolveBackupPath(projectRoot, name);
+  try {
+    await fs.access(archive);
+  } catch {
+    throw new BackupError("备份不存在", 404);
+  }
+
+  // 仅看容器状态，不读日志：要求两个分片都已停止
+  const statusResult = await runCompose("status", projectRoot);
+  if (parseComposeStatus(statusResult.stdout).overall !== "stopped") {
+    throw new BackupError("请先停止服务器再恢复", 409);
+  }
+
+  const src = saveDir(projectRoot);
+  await fs.mkdir(src, { recursive: true });
+
+  // 暂存当前 token，恢复后写回（备份包不含 token）
+  let token: string | null = null;
+  try {
+    token = await fs.readFile(resolve(src, TOKEN_FILENAME), "utf8");
+  } catch {
+    token = null;
+  }
+
+  const tmp = resolve(
+    backupDir(projectRoot),
+    `.restore-tmp-${Date.now()}-${Math.random().toString(36).slice(2)}`
+  );
+  await fs.mkdir(tmp, { recursive: true });
+  try {
+    await tar.extract({ file: archive, cwd: tmp });
+    const extracted = await fs.readdir(tmp);
+    if (extracted.length === 0) {
+      throw new BackupError("备份文件已损坏或为空", 422);
+    }
+
+    // 清空现有存档，但保留 token
+    for (const entry of await fs.readdir(src)) {
+      if (entry === TOKEN_FILENAME) continue;
+      await fs.rm(resolve(src, entry), { recursive: true, force: true });
+    }
+    // 移入解压内容
+    for (const entry of extracted) {
+      await fs.rename(resolve(tmp, entry), resolve(src, entry));
+    }
+    // 若原先有 token 而恢复内容未带，则写回
+    if (token !== null) {
+      try {
+        await fs.access(resolve(src, TOKEN_FILENAME));
+      } catch {
+        await fs.writeFile(resolve(src, TOKEN_FILENAME), token);
+      }
+    }
+  } finally {
+    await fs.rm(tmp, { recursive: true, force: true });
   }
 }

@@ -2,9 +2,12 @@ import { promises as fs } from "node:fs";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { createBackup, deleteBackup, listBackups, resolveBackupPath } from "../src/backup/service.js";
+const runComposeMock = vi.hoisted(() => vi.fn());
+vi.mock("../src/docker/compose.js", () => ({ runCompose: runComposeMock }));
+
+import { createBackup, deleteBackup, listBackups, resolveBackupPath, restoreBackup } from "../src/backup/service.js";
 
 let projectRoot: string;
 
@@ -22,6 +25,7 @@ async function seedSave(files: Record<string, string>) {
 
 beforeEach(async () => {
   projectRoot = await fs.mkdtemp(resolve(tmpdir(), "dst-backup-"));
+  runComposeMock.mockReset();
 });
 
 afterEach(async () => {
@@ -120,6 +124,48 @@ describe("deleteBackup", () => {
   it("删除不存在的备份抛 404", async () => {
     await expect(
       deleteBackup(projectRoot, "dst-save-20260101-000000.tar.gz")
+    ).rejects.toMatchObject({ status: 404 });
+  });
+});
+
+const STOPPED = JSON.stringify([
+  { Service: "dst-master", State: "exited", Status: "Exited", Publishers: null },
+  { Service: "dst-caves", State: "exited", Status: "Exited", Publishers: null }
+]);
+const RUNNING = JSON.stringify([
+  { Service: "dst-master", State: "running", Status: "Up", Publishers: null },
+  { Service: "dst-caves", State: "running", Status: "Up", Publishers: null }
+]);
+
+describe("restoreBackup", () => {
+  it("服务器运行中时拒绝并抛 409", async () => {
+    runComposeMock.mockResolvedValue({ stdout: RUNNING, stderr: "" });
+    await seedSave({ "cluster.ini": "x" });
+    const { name } = await createBackup(projectRoot);
+    await expect(restoreBackup(projectRoot, name)).rejects.toMatchObject({ status: 409 });
+  });
+
+  it("保留 cluster_token.txt 并完整替换世界内容", async () => {
+    runComposeMock.mockResolvedValue({ stdout: STOPPED, stderr: "" });
+    await seedSave({ "cluster.ini": "OLD", "cluster_token.txt": "SECRET", "stale.txt": "remove-me" });
+    const { name } = await createBackup(projectRoot);
+
+    const src = resolve(projectRoot, SAVE_REL);
+    await fs.rm(resolve(src, "cluster.ini"));
+    await fs.writeFile(resolve(src, "cluster_token.txt"), "KEPT");
+    await fs.writeFile(resolve(src, "after-backup.txt"), "should-be-gone");
+
+    await restoreBackup(projectRoot, name);
+
+    expect(await fs.readFile(resolve(src, "cluster.ini"), "utf8")).toBe("OLD");
+    await expect(fs.access(resolve(src, "after-backup.txt"))).rejects.toThrow();
+    expect(await fs.readFile(resolve(src, "cluster_token.txt"), "utf8")).toBe("KEPT");
+  });
+
+  it("恢复不存在的备份抛 404", async () => {
+    runComposeMock.mockResolvedValue({ stdout: STOPPED, stderr: "" });
+    await expect(
+      restoreBackup(projectRoot, "dst-save-20260101-000000.tar.gz")
     ).rejects.toMatchObject({ status: 404 });
   });
 });
