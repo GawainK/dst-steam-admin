@@ -37,7 +37,16 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
   if (!response.ok) {
     const body = await response.text();
-    throw new Error(body || `Request failed: ${response.status}`);
+    let messageText = body;
+    try {
+      const parsed = JSON.parse(body) as { error?: string };
+      if (parsed?.error) {
+        messageText = parsed.error;
+      }
+    } catch {
+      // 非 JSON 响应：保留原始文本
+    }
+    throw new Error(messageText || `Request failed: ${response.status}`);
   }
 
   return (await response.json()) as T;
@@ -113,4 +122,33 @@ export async function setModEnabled(id: string, enabled: boolean) {
     method: "PATCH",
     body: JSON.stringify({ enabled })
   });
+}
+
+export interface BackupEntry {
+  name: string;
+  createdAt: string;
+  size: number;
+}
+
+export function listBackups() {
+  return request<{ items: BackupEntry[] }>("/api/backups");
+}
+
+export function createBackup(label?: string) {
+  return request<BackupEntry>("/api/backups", {
+    method: "POST",
+    body: JSON.stringify(label ? { label } : {})
+  });
+}
+
+export async function restoreBackup(name: string) {
+  await request(`/api/backups/${encodeURIComponent(name)}/restore`, { method: "POST" });
+}
+
+export async function deleteBackup(name: string) {
+  await request(`/api/backups/${encodeURIComponent(name)}`, { method: "DELETE" });
+}
+
+export function backupDownloadUrl(name: string) {
+  return `/api/backups/${encodeURIComponent(name)}/download`;
 }
