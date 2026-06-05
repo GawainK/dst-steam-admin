@@ -15,21 +15,36 @@ function readyMarkersFromEnv(): string[] | undefined {
   return markers.length > 0 ? markers : undefined;
 }
 
+let readyLatched = false;
+
+// 仅供测试：重置就绪 latch
+export function __resetReadyLatch(): void {
+  readyLatched = false;
+}
+
 export async function getServerStatus(projectRoot: string) {
   const result = await runCompose("status", projectRoot);
   const status = parseComposeStatus(result.stdout);
 
-  // Containers report "running" the instant docker restarts them, but the DST process
-  // inside still needs minutes to load the world and connect shards. Confirm readiness
-  // from the logs before reporting "running"; otherwise surface "starting".
-  if (status.overall === "running") {
-    const logs = await runCompose("logs", projectRoot, "1000");
-    if (!isServerReady(logs.stdout, readyMarkersFromEnv())) {
-      return { ...status, overall: "starting" as const };
-    }
+  // 容器一旦不再全部运行，下一轮必须重新判定就绪
+  if (status.overall !== "running") {
+    readyLatched = false;
+    return status;
   }
 
-  return status;
+  // 已确认就绪：稳态下跳过昂贵的日志扫描
+  if (readyLatched) {
+    return status;
+  }
+
+  // 容器 running 但游戏进程可能仍在加载世界，读日志确认就绪标记
+  const logs = await runCompose("logs", projectRoot, "1000");
+  if (isServerReady(logs.stdout, readyMarkersFromEnv())) {
+    readyLatched = true;
+    return status;
+  }
+
+  return { ...status, overall: "starting" as const };
 }
 
 export async function runServerAction(
@@ -37,6 +52,8 @@ export async function runServerAction(
   action: "start" | "stop" | "restart"
 ) {
   await runCompose(action, projectRoot, undefined);
+  // 用户主动启停后强制下一轮重新判定就绪
+  readyLatched = false;
 }
 
 export async function getServerLogs(projectRoot: string, lines?: string) {
