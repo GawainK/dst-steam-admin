@@ -64,7 +64,7 @@ import {
   listBackups,
   restoreBackup,
   type BackupEntry
-} from "../api/client.js";
+} from "../api/client";
 
 const message = useMessage();
 const items = ref<BackupEntry[]>([]);
