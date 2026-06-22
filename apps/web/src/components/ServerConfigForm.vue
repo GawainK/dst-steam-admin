@@ -3,7 +3,7 @@
     <template #header>
       <div class="section-title">
         <span>世界配置</span>
-        <span class="section-subtitle">基础房间参数</span>
+        <span class="section-subtitle">基础房间参数，端口由 Docker Compose 暴露</span>
       </div>
     </template>
     <n-form :model="draft" label-placement="top">
@@ -45,12 +45,24 @@
         </n-grid-item>
         <n-grid-item>
           <n-form-item label="Master 端口">
-            <n-input-number v-model:value="draft.masterPort" :min="1024" :max="65535" />
+            <n-input-number
+              v-model:value="draft.masterPort"
+              data-testid="master-port"
+              disabled
+              :min="1024"
+              :max="65535"
+            />
           </n-form-item>
         </n-grid-item>
         <n-grid-item>
           <n-form-item label="Caves 端口">
-            <n-input-number v-model:value="draft.cavesPort" :min="1024" :max="65535" />
+            <n-input-number
+              v-model:value="draft.cavesPort"
+              data-testid="caves-port"
+              disabled
+              :min="1024"
+              :max="65535"
+            />
           </n-form-item>
         </n-grid-item>
       </n-grid>

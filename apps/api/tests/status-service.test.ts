@@ -1,3 +1,7 @@
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { resolve } from "node:path";
+
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const runComposeMock = vi.hoisted(() => vi.fn());
@@ -31,6 +35,26 @@ beforeEach(() => {
   runComposeMock.mockReset();
   __resetReadyLatch();
 });
+
+function createConfiguredProject(enableCaves: boolean): string {
+  const root = mkdtempSync(resolve(tmpdir(), "dst-server-action-"));
+  const dir = resolve(root, "data/cluster/admin");
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(
+    resolve(dir, "server-config.json"),
+    JSON.stringify({
+      steamToken: "token",
+      clusterName: "Test Cluster",
+      clusterPassword: "",
+      maxPlayers: 6,
+      gameMode: "survival",
+      enableCaves,
+      masterPort: 10999,
+      cavesPort: 11000
+    })
+  );
+  return root;
+}
 
 describe("getServerStatus readiness latch", () => {
   it("首次 running 轮询扫描日志，就绪则返回 running", async () => {
@@ -77,5 +101,20 @@ describe("getServerStatus readiness latch", () => {
     runComposeMock.mockClear();
     await getServerStatus("/root");
     expect(logCalls()).toHaveLength(1);
+  });
+
+  it("洞穴关闭时 server action 只操作 master 分片", async () => {
+    const root = createConfiguredProject(false);
+    runComposeMock.mockResolvedValue({ stdout: "ok", stderr: "" });
+
+    try {
+      await runServerAction(root, "start");
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+
+    expect(runComposeMock).toHaveBeenCalledWith("start", root, undefined, [
+      "dst-master"
+    ]);
   });
 });

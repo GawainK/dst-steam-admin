@@ -19,6 +19,7 @@ export interface ComposeRunResult {
 const DEFAULT_LOG_LINES = 200;
 const MAX_LOG_LINES = 1000;
 const DST_SERVICES = ["dst-master", "dst-caves"] as const;
+export type ComposeService = (typeof DST_SERVICES)[number];
 
 function resolveComposeCwd(action: ServerAction, cwd: string): string {
   const projectRoot = realpathSync(resolve(getProjectRoot()));
@@ -53,23 +54,24 @@ export function sanitizeLogLines(value?: string): number {
 
 export function buildComposeCommand(
   action: ServerAction,
-  lines?: string
+  lines?: string,
+  services: readonly ComposeService[] = DST_SERVICES
 ): ComposeCommand {
   switch (action) {
     case "start":
       return {
         command: "docker",
-        args: ["compose", "start", ...DST_SERVICES]
+        args: ["compose", "start", ...services]
       };
     case "stop":
       return {
         command: "docker",
-        args: ["compose", "stop", ...DST_SERVICES]
+        args: ["compose", "stop", ...services]
       };
     case "restart":
       return {
         command: "docker",
-        args: ["compose", "restart", ...DST_SERVICES]
+        args: ["compose", "restart", ...services]
       };
     case "status":
       return {
@@ -93,9 +95,10 @@ export function buildComposeCommand(
 export function runCompose(
   action: ServerAction,
   cwd: string,
-  lines?: string
+  lines?: string,
+  services?: readonly ComposeService[]
 ): Promise<ComposeRunResult> {
-  const { command, args } = buildComposeCommand(action, lines);
+  const { command, args } = buildComposeCommand(action, lines, services);
 
   return new Promise((resolve, reject) => {
     let composeCwd: string;

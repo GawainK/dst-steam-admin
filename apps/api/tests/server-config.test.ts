@@ -58,6 +58,23 @@ describe("server config", () => {
     ).toMatchObject({ steamToken: "abc123" });
   });
 
+  it("returns editable defaults before the first server config is saved", async () => {
+    const projectRoot = mkdtempSync(resolve(tmpdir(), "dst-config-defaults-"));
+    tempRoots.push(projectRoot);
+
+    await expect(readServerConfig(projectRoot)).resolves.toEqual({
+      steamToken: "",
+      steamTokenMasked: "",
+      clusterName: "DST Steam Admin",
+      clusterPassword: "",
+      maxPlayers: 6,
+      gameMode: "survival",
+      enableCaves: true,
+      masterPort: 10999,
+      cavesPort: 11000
+    });
+  });
+
   it("rejects invalid maxPlayers values through the config API", async () => {
     const projectRoot = mkdtempSync(resolve(tmpdir(), "dst-config-route-"));
     tempRoots.push(projectRoot);

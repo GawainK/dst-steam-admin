@@ -68,6 +68,13 @@ describe("buildComposeCommand", () => {
     });
   });
 
+  it("allows server actions to target only the master shard", () => {
+    expect(buildComposeCommand("start", undefined, ["dst-master"])).toEqual({
+      command: "docker",
+      args: ["compose", "start", "dst-master"]
+    });
+  });
+
   it("maps stop and restart without accepting arbitrary shell input", () => {
     expect(buildComposeCommand("stop", "200; rm -rf /")).toEqual({
       command: "docker",

@@ -48,6 +48,16 @@ describe("mod file service", () => {
     ).toBe("return {}\n");
   });
 
+  it("returns default mod files before they are saved", async () => {
+    const projectRoot = mkdtempSync(resolve(tmpdir(), "dst-mods-defaults-"));
+    tempRoots.push(projectRoot);
+
+    await expect(readModFiles(projectRoot)).resolves.toEqual({
+      setup: "",
+      overrides: "return {}\n"
+    });
+  });
+
   it("serves and updates mod file content through the API", async () => {
     const projectRoot = mkdtempSync(resolve(tmpdir(), "dst-mods-route-"));
     tempRoots.push(projectRoot);

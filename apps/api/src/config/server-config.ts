@@ -4,6 +4,17 @@ import { ZodError, z } from "zod";
 
 import { serverConfigSchema, type ServerConfigInput } from "./schema.js";
 
+const DEFAULT_SERVER_CONFIG = {
+  steamToken: "",
+  clusterName: "DST Steam Admin",
+  clusterPassword: "",
+  maxPlayers: 6,
+  gameMode: "survival" as const,
+  enableCaves: true,
+  masterPort: 10999,
+  cavesPort: 11000
+};
+
 function getServerConfigPath(projectRoot: string) {
   return resolve(projectRoot, "data/cluster/admin/server-config.json");
 }
@@ -56,7 +67,19 @@ export async function writeServerConfig(
 }
 
 export async function readServerConfig(projectRoot: string) {
-  const parsed = await readStoredServerConfig(projectRoot);
+  let parsed: ServerConfigInput;
+  let steamTokenMasked = "";
+
+  try {
+    parsed = await readStoredServerConfig(projectRoot);
+    steamTokenMasked = maskSteamToken(parsed.steamToken);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
+      throw error;
+    }
+
+    parsed = DEFAULT_SERVER_CONFIG;
+  }
 
   return {
     clusterName: parsed.clusterName,
@@ -67,6 +90,6 @@ export async function readServerConfig(projectRoot: string) {
     masterPort: parsed.masterPort,
     cavesPort: parsed.cavesPort,
     steamToken: "",
-    steamTokenMasked: maskSteamToken(parsed.steamToken)
+    steamTokenMasked
   };
 }

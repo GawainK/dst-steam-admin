@@ -1,4 +1,5 @@
-import { runCompose } from "../docker/compose.js";
+import { readServerConfig } from "../config/server-config.js";
+import { type ComposeService, runCompose } from "../docker/compose.js";
 import { isServerReady, parseComposeStatus } from "../docker/status.js";
 
 function readyMarkersFromEnv(): string[] | undefined {
@@ -20,6 +21,15 @@ let readyLatched = false;
 // 仅供测试：重置就绪 latch
 export function __resetReadyLatch(): void {
   readyLatched = false;
+}
+
+async function actionServices(projectRoot: string): Promise<readonly ComposeService[] | undefined> {
+  try {
+    const config = await readServerConfig(projectRoot);
+    return config.enableCaves ? undefined : ["dst-master"];
+  } catch {
+    return undefined;
+  }
 }
 
 export async function getServerStatus(projectRoot: string) {
@@ -51,7 +61,12 @@ export async function runServerAction(
   projectRoot: string,
   action: "start" | "stop" | "restart"
 ) {
-  await runCompose(action, projectRoot, undefined);
+  const services = await actionServices(projectRoot);
+  if (services) {
+    await runCompose(action, projectRoot, undefined, services);
+  } else {
+    await runCompose(action, projectRoot, undefined);
+  }
   // 用户主动启停后强制下一轮重新判定就绪
   readyLatched = false;
 }

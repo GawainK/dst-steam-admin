@@ -9,10 +9,22 @@ function getOverridesPath(projectRoot: string) {
   return resolve(projectRoot, "data/mods/modoverrides.lua");
 }
 
+async function readTextOrDefault(path: string, fallback: string): Promise<string> {
+  try {
+    return await fs.readFile(path, "utf8");
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") {
+      return fallback;
+    }
+
+    throw error;
+  }
+}
+
 export async function readModFiles(projectRoot: string) {
   return {
-    setup: await fs.readFile(getSetupPath(projectRoot), "utf8"),
-    overrides: await fs.readFile(getOverridesPath(projectRoot), "utf8")
+    setup: await readTextOrDefault(getSetupPath(projectRoot), ""),
+    overrides: await readTextOrDefault(getOverridesPath(projectRoot), "return {}\n")
   };
 }
 
