@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { ZodError } from "zod";
 
+import { addAdmin, deleteAdmin, listAdmins, normalizeKleiId } from "./admin-list.js";
 import { readModFiles, writeModFiles } from "./mod-files.js";
 import { resolveModNames } from "./mod-names.js";
 import { addMod, ModParseError, normalizeModId, parseOverrides, parseSetup, removeMod, setEnabled } from "./mods-parser.js";
@@ -49,6 +50,44 @@ export function createConfigRouter(projectRoot: string): Router {
   router.put("/mods", async (request, response, next) => {
     try {
       await writeModFiles(projectRoot, request.body);
+      response.json({ ok: true });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.get("/admins", async (_request, response, next) => {
+    try {
+      response.json(await listAdmins(projectRoot));
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.post("/admins", async (request, response, next) => {
+    try {
+      const id = normalizeKleiId(request.body?.id);
+      if (!id) {
+        response.status(400).json({ error: "缺少有效的 Klei 用户 ID" });
+        return;
+      }
+
+      await addAdmin(projectRoot, id);
+      response.json({ ok: true });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  router.delete("/admins/:id", async (request, response, next) => {
+    try {
+      const id = normalizeKleiId(request.params.id);
+      if (!id) {
+        response.status(400).json({ error: "无效的 Klei 用户 ID" });
+        return;
+      }
+
+      await deleteAdmin(projectRoot, id);
       response.json({ ok: true });
     } catch (error) {
       next(error);

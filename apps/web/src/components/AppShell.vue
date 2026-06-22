@@ -61,6 +61,10 @@
         />
       </section>
 
+      <section v-else-if="activeSection === 'admins'" class="page">
+        <AdminConfigPanel />
+      </section>
+
       <section v-else-if="activeSection === 'backup'" class="page">
         <BackupPanel />
       </section>
@@ -73,7 +77,7 @@
 </template>
 
 <script setup lang="ts">
-import { TerminalSquare, ScrollText, Cog, Puzzle, Archive, BookOpenText } from "lucide-vue-next";
+import { TerminalSquare, ScrollText, Cog, Puzzle, UserCog, Archive, BookOpenText } from "lucide-vue-next";
 import {
   NButton,
   NCard,
@@ -105,6 +109,7 @@ import ControlPanel from "./ControlPanel.vue";
 import DocsPanel from "./DocsPanel.vue";
 import LogsPanel from "./LogsPanel.vue";
 import LogsSummary from "./LogsSummary.vue";
+import AdminConfigPanel from "./AdminConfigPanel.vue";
 import BackupPanel from "./BackupPanel.vue";
 import ModsConfigPanel from "./ModsConfigPanel.vue";
 import ServerConfigForm from "./ServerConfigForm.vue";
@@ -112,7 +117,7 @@ import StatusCard from "./StatusCard.vue";
 
 const message = useMessage();
 
-type SectionKey = "overview" | "logs" | "config" | "mods" | "backup" | "docs";
+type SectionKey = "overview" | "logs" | "config" | "mods" | "admins" | "backup" | "docs";
 
 const activeSection = ref<SectionKey>("overview");
 const serverStatus = ref<ServerStatus>({
@@ -148,6 +153,7 @@ const menuOptions = [
   { label: "实时日志", key: "logs", icon: renderIcon(ScrollText) },
   { label: "世界配置", key: "config", icon: renderIcon(Cog) },
   { label: "模组配置", key: "mods", icon: renderIcon(Puzzle) },
+  { label: "管理员设置", key: "admins", icon: renderIcon(UserCog) },
   { label: "存档备份", key: "backup", icon: renderIcon(Archive) },
   { label: "部署说明", key: "docs", icon: renderIcon(BookOpenText) }
 ];
@@ -157,6 +163,7 @@ const heroMeta: Record<SectionKey, { title: string; copy: string }> = {
   logs: { title: "实时日志", copy: "查看最近日志输出并手动刷新。" },
   config: { title: "世界配置", copy: "编辑房间名、密码、人数、端口等基础配置。" },
   mods: { title: "模组配置", copy: "编辑模组安装与覆盖配置文件。" },
+  admins: { title: "管理员设置", copy: "添加或移除 DST 世界内管理员 Klei ID。" },
   backup: { title: "存档备份", copy: "备份、恢复、下载世界存档（恢复需先停服）。" },
   docs: { title: "部署说明", copy: "查看部署与运维命令。" }
 };

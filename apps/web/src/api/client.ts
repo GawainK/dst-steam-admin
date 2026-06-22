@@ -27,6 +27,10 @@ export interface ModsConfig {
   overrides: string;
 }
 
+export interface AdminListItem {
+  id: string;
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(path, {
     headers: {
@@ -121,6 +125,23 @@ export async function setModEnabled(id: string, enabled: boolean) {
   await request(`/api/config/mods/${id}`, {
     method: "PATCH",
     body: JSON.stringify({ enabled })
+  });
+}
+
+export function getAdminList() {
+  return request<{ items: AdminListItem[] }>("/api/config/admins");
+}
+
+export async function addAdmin(id: string) {
+  await request("/api/config/admins", {
+    method: "POST",
+    body: JSON.stringify({ id })
+  });
+}
+
+export async function removeAdmin(id: string) {
+  await request(`/api/config/admins/${encodeURIComponent(id)}`, {
+    method: "DELETE"
   });
 }
 

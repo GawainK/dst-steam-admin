@@ -37,6 +37,7 @@ describe("App", () => {
     expect(wrapper.text()).toContain("总览");
     expect(wrapper.text()).toContain("实时日志");
     expect(wrapper.text()).toContain("模组配置");
+    expect(wrapper.text()).toContain("管理员设置");
   });
 
   it("switches the visible page when a menu item is selected", async () => {
@@ -189,5 +190,82 @@ describe("App", () => {
 
     expect((steamTokenInput.element as HTMLInputElement).value).toBe("");
     expect(steamTokenInput.attributes("placeholder")).toBe("abc***");
+  });
+
+  it("switches to admin settings and renders the admin list", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn((input: string | URL | Request) => {
+        const url = String(input);
+
+        if (url.includes("/api/config/admins")) {
+          return Promise.resolve({
+            ok: true,
+            json: async () => ({
+              items: [{ id: "KU_ADMIN1" }]
+            }),
+            text: async () => ""
+          });
+        }
+
+        if (url.includes("/api/config/server")) {
+          return Promise.resolve({
+            ok: true,
+            json: async () => ({
+              steamToken: "",
+              steamTokenMasked: "",
+              clusterName: "Test Cluster",
+              clusterPassword: "",
+              maxPlayers: 6,
+              gameMode: "survival",
+              enableCaves: true,
+              masterPort: 10999,
+              cavesPort: 11000
+            }),
+            text: async () => ""
+          });
+        }
+
+        if (url.includes("/api/config/mods")) {
+          return Promise.resolve({
+            ok: true,
+            json: async () => ({
+              setup: "",
+              overrides: ""
+            }),
+            text: async () => ""
+          });
+        }
+
+        if (url.includes("/api/server/logs")) {
+          return Promise.resolve({
+            ok: true,
+            json: async () => ({ content: "" }),
+            text: async () => ""
+          });
+        }
+
+        return Promise.resolve({
+          ok: true,
+          json: async () => ({
+            overall: "stopped",
+            containers: []
+          }),
+          text: async () => ""
+        });
+      })
+    );
+
+    const wrapper = mount(App);
+    await flushPromises();
+
+    const adminItem = wrapper
+      .findAll(".n-menu-item-content")
+      .find((item) => item.text().includes("管理员设置"));
+    await adminItem!.trigger("click");
+    await flushPromises();
+
+    expect(wrapper.text()).toContain("管理 DST 世界内管理员 Klei ID");
+    expect(wrapper.text()).toContain("KU_ADMIN1");
   });
 });
