@@ -90,6 +90,25 @@ BASH
 
 ## 更新后验收
 
+一键检查新镜像、后台、地面与洞穴及当前固定的 15 个模组：
+
+```bash
+cd ~/dst-steam-admin
+bash scripts/check-server.sh
+```
+
+脚本需要宿主机安装 Python 3，当前用户能运行 Docker Compose。它只读取容器状态和本次启动日志，并使用运行中后台的凭据检查本机页面及 API，不打印密码或 Token，也不会重启或修改服务。全部通过返回 `0`，检查未通过或证据不足返回 `1`，参数或依赖缺失返回 `2`。
+
+默认预期镜像为本文的 `sha-b27bd98d4a47`。后续更新可传入新的完整标签：
+
+```bash
+bash scripts/check-server.sh ghcr.io/gawaink/dst-steam-admin/dst-server:sha-源码SHA前12位
+```
+
+每个模组两侧均出现实际加载 `modmain.lua` 或 `modworldgenmain.lua` 的记录才计为 `OK`，说明文件已下载或命中缓存；下载成功回调不会单独计为通过。启动未完成或日志轮转导致证据不足时会显示 `CHECK`，需要结合日志确认。模组清单沿用本次验收的 15 个 ID，后续更换合集时需同步调整脚本内的 `IDS`。
+
+需要手动核对时，可执行：
+
 ```bash
 cd ~/dst-steam-admin
 
