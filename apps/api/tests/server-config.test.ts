@@ -70,6 +70,7 @@ describe("server config", () => {
       maxPlayers: 6,
       gameMode: "survival",
       enableCaves: true,
+      pauseWhenEmpty: true,
       masterPort: 10999,
       cavesPort: 11000
     });
@@ -92,7 +93,7 @@ describe("server config", () => {
       createConfigRouter(projectRoot) as unknown as HandleRouter, "/server", "GET"
     );
     expect(response.status).toBe(200);
-    expect(response.body).toEqual({ ...draft, steamTokenMasked: "" });
+    expect(response.body).toEqual({ ...draft, pauseWhenEmpty: true, steamTokenMasked: "" });
     expect(JSON.parse(readFileSync(configPath, "utf8"))).toEqual(draft);
 
     const save = await requestConfigRouter(
@@ -106,6 +107,39 @@ describe("server config", () => {
     await expect(readServerConfig(projectRoot)).resolves.toMatchObject({
       steamToken: "", steamTokenMasked: "abc***", clusterName: "My Draft"
     });
+  });
+
+  it.each([true, false])("persists pauseWhenEmpty=%s and returns it without exposing the token", async (pauseWhenEmpty) => {
+    const projectRoot = mkdtempSync(resolve(tmpdir(), "dst-config-pause-"));
+    tempRoots.push(projectRoot);
+    const payload = {
+      steamToken: "abc123", clusterName: "Pause Test", clusterPassword: "",
+      maxPlayers: 6, gameMode: "survival", enableCaves: true,
+      masterPort: 10999, cavesPort: 11000, pauseWhenEmpty
+    };
+    const router = createConfigRouter(projectRoot) as unknown as HandleRouter;
+    const save = await requestConfigRouter(router, "/server", "PUT", payload);
+    expect(save.status).toBe(200);
+    expect(JSON.parse(readFileSync(resolve(projectRoot, "data/cluster/admin/server-config.json"), "utf8")).pauseWhenEmpty).toBe(pauseWhenEmpty);
+    await expect(readServerConfig(projectRoot)).resolves.toMatchObject({ pauseWhenEmpty, steamToken: "", steamTokenMasked: "abc***" });
+
+    // Older clients omitting this new setting must not reset an explicit false.
+    const { pauseWhenEmpty: _omitted, ...oldPayload } = payload;
+    const update = await requestConfigRouter(router, "/server", "PUT", { ...oldPayload, steamToken: "", clusterName: "Updated" });
+    expect(update.status).toBe(200);
+    await expect(readServerConfig(projectRoot)).resolves.toMatchObject({ pauseWhenEmpty, clusterName: "Updated", steamTokenMasked: "abc***" });
+  });
+
+  it("rejects non-boolean pauseWhenEmpty values", async () => {
+    const projectRoot = mkdtempSync(resolve(tmpdir(), "dst-config-pause-invalid-"));
+    tempRoots.push(projectRoot);
+    const response = await requestConfigRouter(createConfigRouter(projectRoot) as unknown as HandleRouter, "/server", "PUT", {
+      steamToken: "abc123", clusterName: "Pause Test", clusterPassword: "",
+      maxPlayers: 6, gameMode: "survival", enableCaves: true,
+      masterPort: 10999, cavesPort: 11000, pauseWhenEmpty: "false"
+    });
+    expect(response.status).toBe(400);
+    expect(response.body).toMatchObject({ fields: { pauseWhenEmpty: [expect.any(String)] } });
   });
 
   it("still rejects other invalid fields when reading a draft with no token", async () => {

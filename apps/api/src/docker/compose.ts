@@ -20,7 +20,7 @@ const DEFAULT_LOG_LINES = 200;
 const MAX_LOG_LINES = 1000;
 const DST_SERVICES = ["dst-server"] as const;
 
-function resolveComposeCwd(action: ServerAction, cwd: string): string {
+export function resolveComposeCwd(action: ServerAction, cwd: string): string {
   const projectRoot = realpathSync(resolve(getProjectRoot()));
   const composeCwd = realpathSync(resolve(cwd));
   const relativePath = relative(projectRoot, composeCwd);

@@ -31,6 +31,7 @@ cluster_name="${DST_CLUSTER_NAME:-}"
 cluster_password="${DST_CLUSTER_PASSWORD:-}"
 game_mode="${DST_GAME_MODE:-}"
 max_players="${DST_MAX_PLAYERS:-}"
+pause_when_empty=""
 server_port="${DST_SERVER_PORT:-}"
 steam_token="${DST_STEAM_TOKEN:-}"
 
@@ -39,6 +40,7 @@ if [ -f "${config_file}" ]; then
   [ -n "${cluster_password}" ] || cluster_password="$(read_json_string "${config_file}" "clusterPassword")"
   [ -n "${game_mode}" ] || game_mode="$(read_json_string "${config_file}" "gameMode")"
   [ -n "${max_players}" ] || max_players="$(read_json_scalar "${config_file}" "maxPlayers")"
+  pause_when_empty="$(read_json_scalar "${config_file}" "pauseWhenEmpty")"
   [ -n "${steam_token}" ] || steam_token="$(read_json_string "${config_file}" "steamToken")"
 
   if [ -z "${server_port}" ]; then
@@ -53,6 +55,11 @@ fi
 [ -n "${cluster_name}" ] || cluster_name="DST Steam Admin"
 [ -n "${game_mode}" ] || game_mode="survival"
 [ -n "${max_players}" ] || max_players="6"
+[ -n "${pause_when_empty}" ] || pause_when_empty="true"
+case "${pause_when_empty}" in
+  true|false) ;;
+  *) echo "Invalid pauseWhenEmpty: expected true or false" >&2; exit 1 ;;
+esac
 if [ -z "${server_port}" ]; then
   if [ "${shard_name}" = "Master" ]; then
     server_port="10999"
@@ -93,6 +100,7 @@ sed \
   -e "s|{{CLUSTER_PASSWORD}}|${cluster_password}|g" \
   -e "s|{{GAME_MODE}}|${game_mode}|g" \
   -e "s|{{MAX_PLAYERS}}|${max_players}|g" \
+  -e "s|{{PAUSE_WHEN_EMPTY}}|${pause_when_empty}|g" \
   -e "s|{{SHARD_ENABLED}}|${shard_enabled}|g" \
   -e "s|{{SHARD_BIND_IP}}|${shard_bind_ip}|g" \
   -e "s|{{SHARD_MASTER_IP}}|${shard_master_ip}|g" \

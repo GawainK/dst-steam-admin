@@ -5,6 +5,7 @@
   "maxPlayers": 6,
   "gameMode": "survival",
   "enableCaves": true,
+  "pauseWhenEmpty": true,
   "masterPort": 10999,
   "cavesPort": 11000
 }

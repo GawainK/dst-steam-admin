@@ -65,6 +65,26 @@ docker compose logs -f --tail=100 dst-server
 
 游戏版本更新不需要重建镜像。已有安装需要临时离线启动时，可在 `dst-server.environment` 中设置 `DST_SKIP_UPDATE: "1"` 并重新创建容器；恢复正常版本检查时移除此配置。无游戏安装时仍会尝试首次下载。
 
+### 无人时自动暂停
+
+在 `data/cluster/admin/server-config.json` 的现有对象中增加 `"pauseWhenEmpty": true`，保留其他配置字段：
+
+- `true`：最后一名玩家离开后暂停世界，有玩家加入后恢复；容器保持运行。
+- `false`：无人时世界继续运行。
+- 旧配置没有此字段时默认按 `true` 处理。后台读取、保存其他配置时会保留该参数，当前通过配置文件调整。
+
+启动脚本将其写入地面与洞穴共享的 `cluster.ini` 的 `[GAMEPLAY] pause_when_empty`，参见 [Klei 专用服务器配置说明](https://kleiforums.com/forums/topic/64552-dedicated-server-settings-guide/)。不要只修改生成的 `cluster.ini`，下次启动会重新渲染。
+
+首次部署此功能需要使用包含新启动脚本和模板的轻量运行镜像：源码部署需重新构建 `dst-server`；远端镜像部署需先构建、发布并切换新版镜像。使用支持此参数的镜像后，日常修改 JSON 再重启即可生效：
+
+```bash
+docker compose restart dst-server
+docker compose exec dst-server grep '^pause_when_empty' \
+  /var/lib/dst/cluster/DoNotStarveTogether/Cluster/cluster.ini
+```
+
+重启会中断玩家连接，启动后上面的检查应输出 `pause_when_empty = true` 或所设置的 `false`。是否实际暂停还应通过最后一名玩家退出、重新加入后核对世界时间验证。
+
 ### 启动时修复 Steam Workshop 运行库
 
 每次启动时，在安装/更新结束后、两个分片启动前，监督器会将服务器持久化的 `/opt/steamcmd/linux64/steamclient.so` 同步到 `/opt/dst/bin64/lib64/steamclient.so`。这对应已验证的 Workshop 旧版模组下载修复：此前出现 `Install library folder not found` 和 `OnDownloadPublishedFile [16]`，同步后本次合集的 15 个模组均通过地面与洞穴的加载检查。

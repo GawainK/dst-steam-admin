@@ -13,6 +13,7 @@ services:
     environment:
       PORT: 3000
       PROJECT_ROOT: /app
+      DST_GAME_IMAGE: ${DST_GAME_IMAGE:-}
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
       - ./data:/app/data

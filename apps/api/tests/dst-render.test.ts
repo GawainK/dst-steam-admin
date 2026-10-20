@@ -65,6 +65,7 @@ describe("dst render config script", () => {
     // Both shards share the container network and connect over loopback.
     const masterClusterIni = readFileSync(resolve(clusterDir, "cluster.ini"), "utf8");
     expect(masterClusterIni).toContain("[SHARD]");
+    expect(masterClusterIni).toContain("pause_when_empty = true");
     expect(masterClusterIni).toContain("shard_enabled = true");
     expect(masterClusterIni).toContain("bind_ip = 0.0.0.0");
     expect(masterClusterIni).toContain("master_ip = 127.0.0.1");
@@ -140,6 +141,9 @@ describe("dst render config script", () => {
       "cluster_name = Config Driven Cluster"
     );
     expect(readFileSync(resolve(clusterDir, "cluster.ini"), "utf8")).toContain(
+      "pause_when_empty = true"
+    );
+    expect(readFileSync(resolve(clusterDir, "cluster.ini"), "utf8")).toContain(
       "max_players = 10"
     );
     expect(
@@ -191,6 +195,27 @@ describe("dst render config script", () => {
     expect(cavesServerIni).toContain("authentication_port = 8767");
     expect(cavesServerIni).toContain("master_server_port = 27017");
     expect(cavesServerIni).toContain("id = 2");
+  });
+
+  it.each([true, false])("renders pauseWhenEmpty=%s consistently for Master and Caves", async (pauseWhenEmpty) => {
+    const root = mkdtempSync(resolve(tmpdir(), "dst-render-pause-"));
+    tempRoots.push(root);
+    const clusterRoot = resolve(root, "cluster");
+    mkdirSync(resolve(clusterRoot, "admin"), { recursive: true });
+    writeFileSync(resolve(clusterRoot, "admin/server-config.json"), JSON.stringify({
+      steamToken: "config-token", clusterName: "Pause Test", clusterPassword: "",
+      gameMode: "survival", maxPlayers: 6, enableCaves: true,
+      masterPort: 10999, cavesPort: 11000, pauseWhenEmpty
+    }));
+    for (const shard of ["Master", "Caves"]) {
+      await execFileAsync("sh", ["docker/dst/render-config.sh"], {
+        cwd: repoRoot,
+        env: { ...process.env, DST_CLUSTER_ROOT: clusterRoot, DST_MODS_ROOT: resolve(root, "mods"),
+          DST_INSTALL_ROOT: resolve(root, "install"), DST_TEMPLATE_ROOT: resolve(repoRoot, "docker/dst"), DST_SHARD: shard }
+      });
+      const ini = readFileSync(resolve(clusterRoot, "DoNotStarveTogether/Cluster/cluster.ini"), "utf8");
+      expect(ini).toMatch(new RegExp(`\\[GAMEPLAY\\][\\s\\S]*?pause_when_empty = ${pauseWhenEmpty}\\n[\\s\\S]*?\\[NETWORK\\]`));
+    }
   });
 
   it("retries SteamCMD app updates instead of failing after a single transient error", async () => {

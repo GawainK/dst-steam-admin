@@ -1,6 +1,7 @@
 [GAMEPLAY]
 game_mode = {{GAME_MODE}}
 max_players = {{MAX_PLAYERS}}
+pause_when_empty = {{PAUSE_WHEN_EMPTY}}
 
 [NETWORK]
 cluster_name = {{CLUSTER_NAME}}

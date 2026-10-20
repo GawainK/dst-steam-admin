@@ -2,6 +2,9 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 const runComposeMock = vi.hoisted(() => vi.fn());
 const parseComposeStatusMock = vi.hoisted(() => vi.fn());
+const getServerCheckMock = vi.hoisted(() => vi.fn());
+
+vi.mock("../src/server/check.js", () => ({ getServerCheck: getServerCheckMock }));
 
 vi.mock("../src/docker/compose.js", () => ({
   runCompose: runComposeMock
@@ -34,8 +37,8 @@ async function requestRouter(
     query: {} as Record<string, string | undefined>,
     params: {} as Record<string, string>
   };
-  const responseState: { status: number; body?: unknown } = {
-    status: 200
+  const responseState: { status: number; body?: unknown; headers: Record<string, string> } = {
+    status: 200, headers: {}
   };
 
   const queryIndex = path.indexOf("?");
@@ -49,6 +52,10 @@ async function requestRouter(
 
   await new Promise<void>((resolve, reject) => {
     const response = {
+      setHeader(name: string, value: string) {
+        responseState.headers[name] = value;
+        return this;
+      },
       status(code: number) {
         responseState.status = code;
         return this;
@@ -80,9 +87,21 @@ async function requestRouter(
 afterEach(() => {
   runComposeMock.mockReset();
   parseComposeStatusMock.mockReset();
+  getServerCheckMock.mockReset();
 });
 
 describe("server routes", () => {
+  it("returns a fresh structured report without caching partial check results", async () => {
+    const report = { overall: "check", image: { current: null }, mods: [] };
+    getServerCheckMock.mockResolvedValue(report);
+    const response = await requestRouter("/check", "GET");
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual(report);
+    expect(response.headers["Cache-Control"]).toBe("no-store");
+    expect(getServerCheckMock).toHaveBeenCalledWith(process.cwd());
+    expect(runComposeMock).not.toHaveBeenCalled();
+  });
+
   it("returns parsed status from docker compose output", async () => {
     runComposeMock.mockResolvedValue({ stdout: "[]", stderr: "" });
     parseComposeStatusMock.mockReturnValue({

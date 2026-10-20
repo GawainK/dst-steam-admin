@@ -12,6 +12,7 @@ const baseConfig: ServerConfig = {
   maxPlayers: 6,
   gameMode: "survival",
   enableCaves: true,
+  pauseWhenEmpty: true,
   masterPort: 10999,
   cavesPort: 11000
 };
@@ -32,5 +33,14 @@ describe("ServerConfigForm", () => {
     expect(masterPort.find("input").attributes("disabled")).toBeDefined();
     expect(cavesPort.find("input").attributes("disabled")).toBeDefined();
     expect(wrapper.text()).toContain("端口由 Docker Compose 暴露");
+  });
+
+  it("preserves the file-configured pause option when saving other fields", async () => {
+    const wrapper = mount(ServerConfigForm, {
+      props: { modelValue: { ...baseConfig, pauseWhenEmpty: false }, steamTokenPlaceholder: "abc***", saving: false }
+    });
+    const saveButton = wrapper.findAll("button").find((button) => button.text().includes("保存配置"));
+    await saveButton!.trigger("click");
+    expect(wrapper.emitted("update:modelValue")?.[0]?.[0]).toMatchObject({ pauseWhenEmpty: false });
   });
 });

@@ -7,8 +7,9 @@ export const serverConfigSchema = z.object({
   maxPlayers: z.number().int().min(1).max(64),
   gameMode: z.enum(["survival", "endless", "wilderness"]),
   enableCaves: z.boolean(),
+  pauseWhenEmpty: z.boolean().default(true),
   masterPort: z.number().int().min(1024).max(65535),
   cavesPort: z.number().int().min(1024).max(65535)
 });
 
-export type ServerConfigInput = z.infer<typeof serverConfigSchema>;
+export type ServerConfigInput = z.input<typeof serverConfigSchema>;

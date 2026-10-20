@@ -15,6 +15,7 @@ const DEFAULT_SERVER_CONFIG = {
   maxPlayers: 6,
   gameMode: "survival" as const,
   enableCaves: true,
+  pauseWhenEmpty: true,
   masterPort: 10999,
   cavesPort: 11000
 };
@@ -61,6 +62,17 @@ export async function writeServerConfig(
     }
   }
 
+  if (normalizedInput.pauseWhenEmpty === undefined) {
+    // Older clients must retain a value explicitly set in the config file.
+    let pauseWhenEmpty = true;
+    try {
+      pauseWhenEmpty = (await readStoredServerConfig(projectRoot)).pauseWhenEmpty;
+    } catch {
+      // A first save uses the same default as the renderer.
+    }
+    normalizedInput = { ...normalizedInput, pauseWhenEmpty };
+  }
+
   const config = serverConfigSchema.parse(normalizedInput);
   const configPath = getServerConfigPath(projectRoot);
 
@@ -71,7 +83,7 @@ export async function writeServerConfig(
 }
 
 export async function readServerConfig(projectRoot: string) {
-  let parsed: ServerConfigInput;
+  let parsed: z.infer<typeof storedServerConfigSchema>;
   let steamTokenMasked = "";
 
   try {
@@ -91,6 +103,7 @@ export async function readServerConfig(projectRoot: string) {
     maxPlayers: parsed.maxPlayers,
     gameMode: parsed.gameMode,
     enableCaves: parsed.enableCaves,
+    pauseWhenEmpty: parsed.pauseWhenEmpty,
     masterPort: parsed.masterPort,
     cavesPort: parsed.cavesPort,
     steamToken: "",

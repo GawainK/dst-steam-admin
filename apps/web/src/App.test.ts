@@ -35,9 +35,38 @@ describe("App", () => {
     const wrapper = mount(App);
 
     expect(wrapper.text()).toContain("总览");
+    expect(wrapper.text()).toContain("一键检查");
     expect(wrapper.text()).toContain("实时日志");
     expect(wrapper.text()).toContain("模组配置");
     expect(wrapper.text()).toContain("管理员设置");
+  });
+
+  it("opens server checks from navigation and loads its read-only report", async () => {
+    const fetchMock = vi.fn(async (input: string | URL | Request) => ({
+      ok: true,
+      json: async () => String(input) === "/api/server/check" ? {
+        checkedAt: "2026-10-20T06:00:00Z", overall: "check", version: null,
+        image: { current: "runtime:current", expected: "runtime:expected", id: "sha256:test" },
+        items: [], shards: [], mods: []
+      } : {
+        overall: "stopped", containers: [], content: "", steamToken: "", steamTokenMasked: "",
+        clusterName: "", clusterPassword: "", maxPlayers: 6, gameMode: "survival",
+        enableCaves: true, masterPort: 10999, cavesPort: 11000, setup: "", overrides: ""
+      },
+      text: async () => ""
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+    const wrapper = mount(App);
+    await flushPromises();
+    expect(fetchMock.mock.calls.some(([url]) => url === "/api/server/check")).toBe(false);
+    const menu = wrapper.findAll(".n-menu-item-content").find((item) => item.text().includes("一键检查"));
+    await menu!.trigger("click");
+    await flushPromises();
+    expect(wrapper.text()).toContain("runtime:current");
+    expect(wrapper.text()).toContain("刷新检查");
+    expect(fetchMock).toHaveBeenCalledWith("/api/server/check", expect.any(Object));
+    expect(wrapper.find(".hero__refresh").exists()).toBe(false);
+    wrapper.unmount();
   });
 
   it("switches the visible page when a menu item is selected", async () => {

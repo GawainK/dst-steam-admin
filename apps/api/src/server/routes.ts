@@ -1,5 +1,6 @@
 import { Router } from "express";
 
+import { getServerCheck } from "./check.js";
 import {
   getServerLogs,
   getServerStatus,
@@ -8,6 +9,15 @@ import {
 
 export function createServerRouter(projectRoot: string): Router {
   const router = Router();
+
+  router.get("/check", async (_request, response, next) => {
+    try {
+      response.setHeader("Cache-Control", "no-store");
+      response.json(await getServerCheck(projectRoot));
+    } catch (error) {
+      next(error);
+    }
+  });
 
   router.get("/status", async (_request, response, next) => {
     try {

@@ -16,7 +16,7 @@
           <p class="hero__eyebrow">饥荒联机版专用服务器</p>
           <h1>{{ heroTitle }}</h1>
           <p class="hero__copy">{{ heroCopy }}</p>
-          <label class="hero__refresh">
+          <label v-if="activeSection !== 'checks'" class="hero__refresh">
             <n-switch v-model:value="autoRefresh" size="small" />
             <span>自动刷新（{{ Math.round(REFRESH_INTERVAL_MS / 1000) }}s）</span>
           </label>
@@ -69,6 +69,10 @@
         <BackupPanel />
       </section>
 
+      <section v-else-if="activeSection === 'checks'" class="page">
+        <ServerCheckPanel />
+      </section>
+
       <section v-else class="page">
         <DocsPanel :active-section="activeSection" />
       </section>
@@ -77,7 +81,7 @@
 </template>
 
 <script setup lang="ts">
-import { TerminalSquare, ScrollText, Cog, Puzzle, UserCog, Archive, BookOpenText } from "lucide-vue-next";
+import { TerminalSquare, ScrollText, Cog, Puzzle, UserCog, Archive, BookOpenText, HeartPulse } from "lucide-vue-next";
 import {
   NButton,
   NCard,
@@ -114,10 +118,11 @@ import BackupPanel from "./BackupPanel.vue";
 import ModsConfigPanel from "./ModsConfigPanel.vue";
 import ServerConfigForm from "./ServerConfigForm.vue";
 import StatusCard from "./StatusCard.vue";
+import ServerCheckPanel from "./ServerCheckPanel.vue";
 
 const message = useMessage();
 
-type SectionKey = "overview" | "logs" | "config" | "mods" | "admins" | "backup" | "docs";
+type SectionKey = "overview" | "logs" | "config" | "mods" | "admins" | "backup" | "checks" | "docs";
 
 const activeSection = ref<SectionKey>("overview");
 const serverStatus = ref<ServerStatus>({
@@ -140,6 +145,7 @@ const serverConfig = ref<ServerConfig>({
   maxPlayers: 6,
   gameMode: "survival",
   enableCaves: true,
+  pauseWhenEmpty: true,
   masterPort: 10999,
   cavesPort: 11000
 });
@@ -150,6 +156,7 @@ const modsConfig = ref<ModsConfig>({
 
 const menuOptions = [
   { label: "总览", key: "overview", icon: renderIcon(TerminalSquare) },
+  { label: "一键检查", key: "checks", icon: renderIcon(HeartPulse) },
   { label: "实时日志", key: "logs", icon: renderIcon(ScrollText) },
   { label: "世界配置", key: "config", icon: renderIcon(Cog) },
   { label: "模组配置", key: "mods", icon: renderIcon(Puzzle) },
@@ -160,6 +167,7 @@ const menuOptions = [
 
 const heroMeta: Record<SectionKey, { title: string; copy: string }> = {
   overview: { title: "总览", copy: "查看运行状态，执行启停操作，并查看最近日志摘要。" },
+  checks: { title: "一键检查", copy: "查看当前镜像、地面洞穴及 15 个模组的检查结果，点击刷新重新检查。" },
   logs: { title: "实时日志", copy: "查看最近日志输出并手动刷新。" },
   config: { title: "世界配置", copy: "编辑房间名、密码、人数、端口等基础配置。" },
   mods: { title: "模组配置", copy: "编辑模组安装与覆盖配置文件。" },

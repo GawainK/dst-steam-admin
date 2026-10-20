@@ -19,6 +19,7 @@ export interface ServerConfig {
   maxPlayers: number;
   gameMode: "survival" | "endless" | "wilderness";
   enableCaves: boolean;
+  pauseWhenEmpty: boolean;
   masterPort: number;
   cavesPort: number;
 }
@@ -59,6 +60,22 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
 export function getServerStatus() {
   return request<ServerStatus>("/api/server/status");
+}
+
+export type CheckStatus = "pass" | "check" | "unknown" | "skipped";
+
+export interface ServerCheckReport {
+  checkedAt: string;
+  overall: "pass" | "check";
+  image: { current: string | null; expected: string; id: string | null };
+  version: string | null;
+  items: { key: string; label: string; status: CheckStatus; detail: string }[];
+  shards: { name: "Master" | "Caves"; status: CheckStatus; pid: number | null; ready: boolean; loadedMods: number }[];
+  mods: { id: string; master: CheckStatus; caves: CheckStatus }[];
+}
+
+export function getServerCheck() {
+  return request<ServerCheckReport>("/api/server/check");
 }
 
 export async function startServer() {
