@@ -1,14 +1,17 @@
 #!/usr/bin/env python3
 """Own the room's shard processes, console pipes, output and health state."""
 import configparser
+import filecmp
 import json
 import os
 from pathlib import Path
 import re
 import selectors
+import shutil
 import signal
 import subprocess
 import sys
+import tempfile
 import time
 
 
@@ -16,6 +19,37 @@ STATE_FILE = Path(os.environ.get("DST_STATE_FILE", "/run/dst/status.json"))
 BINARY = "bin64/dontstarve_dedicated_server_nullrenderer_x64"
 MANIFEST = "steamapps/appmanifest_343050.acf"
 MAX_LINE = 64 * 1024
+
+
+def sync_steam_library(install, steamcmd):
+    source = steamcmd / "linux64/steamclient.so"
+    target = install / "bin64/lib64/steamclient.so"
+    if not source.is_file():
+        print("[Setup] SteamCMD 64-bit library unavailable; retaining current game library", flush=True)
+        return
+    with source.open("rb") as library:
+        header = library.read(20)
+    if header[:6] != b"\x7fELF\x02\x01" or header[18:20] != b"\x3e\x00":
+        raise ValueError("SteamCMD library must be an ELF x86-64 shared library")
+    if target.is_file() and filecmp.cmp(source, target, shallow=False):
+        return
+
+    target.parent.mkdir(parents=True, exist_ok=True)
+
+    def atomic_copy(original, destination):
+        fd, name = tempfile.mkstemp(prefix=".steamclient-", dir=target.parent)
+        os.close(fd)
+        temporary = Path(name)
+        try:
+            shutil.copy2(original, temporary)
+            temporary.replace(destination)
+        finally:
+            temporary.unlink(missing_ok=True)
+
+    if target.is_file():
+        atomic_copy(target, target.with_name("steamclient.so.before-steamcmd"))
+    atomic_copy(source, target)
+    print("[Setup] Synced SteamCMD 64-bit library for Workshop downloads", flush=True)
 
 
 def build_id(root):
@@ -112,6 +146,8 @@ class Supervisor:
             self.run_setup([str(self.scripts / "dst-install-server")])
         if not os.access(self.install / BINARY, os.X_OK):
             raise ValueError("DST installation did not produce an executable server")
+        if os.environ.get("DST_SKIP_STEAM_LIBRARY_SYNC") != "1":
+            sync_steam_library(self.install, Path(os.environ.get("DST_STEAMCMD_ROOT", "/opt/steamcmd")))
         try:
             self.version = (self.install / "version.txt").read_text().strip()
         except OSError:
@@ -134,7 +170,10 @@ class Supervisor:
             stderr=subprocess.STDOUT, start_new_session=True)
         os.set_blocking(process.stdout.fileno(), False)
         os.set_blocking(process.stdin.fileno(), False)
-        markers = os.environ.get("DST_READY_MARKERS", "registered via geo DNS,Sim paused")
+        default_markers = "registered via geo DNS,Sim paused"
+        if name == "Caves":
+            default_markers += ",[Shard] secondary shard LUA is now ready!"
+        markers = os.environ.get("DST_READY_MARKERS", default_markers)
         if name == "Caves":
             markers = os.environ.get("DST_CAVES_READY_MARKERS", markers)
         shard = {"name": name, "process": process, "ready": False, "buffer": b"",

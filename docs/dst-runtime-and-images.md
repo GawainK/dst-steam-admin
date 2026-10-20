@@ -11,9 +11,27 @@
 - 任一必需分片退出，停止其余分片，保留非零退出码；正常停服退出码为 0。不会自动重启单个分片并让两个世界处于不同生命周期。
 - `/run/dst/status.json` 原子写入分片 PID、就绪状态、退出码、游戏版本、Build ID 和是否发生强制终止；不写入 Token。
 - Docker 健康检查要求所有启用分片都就绪、进程存活、心跳未过期。后台优先使用 Docker Health；旧镜像没有健康检查时保留原来的日志判定。
-- 就绪默认匹配 `registered via geo DNS` 或 `Sim paused`。可以在 **dst-server** 环境中配置 `DST_READY_MARKERS`（全体分片）及 `DST_CAVES_READY_MARKERS`（洞穴覆盖），以逗号或换行分隔。健康状态只证明内部就绪，不代表公网可以连接。
+- 就绪默认匹配 `registered via geo DNS` 或 `Sim paused`；洞穴还识别 `[Shard] secondary shard LUA is now ready!`，兼容只输出分片 Lua 就绪日志的游戏版本。可以在 **dst-server** 环境中配置 `DST_READY_MARKERS`（全体分片）及 `DST_CAVES_READY_MARKERS`（洞穴覆盖），以逗号或换行分隔；显式配置会覆盖对应默认规则。健康状态只证明内部就绪，不代表公网可以连接。
 
 `DST_SHUTDOWN_TIMEOUT`（0–45 秒，默认 40）与 `DST_TERMINATE_TIMEOUT`（0–10 秒，默认 5）总计不超过 Compose 的 60 秒停服窗口。状态文件在每次启动重新初始化，不沿用旧分片的就绪缓存。
+
+### 旧镜像的洞穴就绪识别
+
+如果日志已出现 `Secondary Caves(2) ready!` 和 `[Shard] secondary shard LUA is now ready!`，但 `Caves.ready` 仍为 `false`，可在现有 `docker-compose.yml` 的 `dst-server.environment` 下加入：
+
+```yaml
+DST_CAVES_READY_MARKERS: "[Shard] secondary shard LUA is now ready!"
+```
+
+使用已发布镜像时执行下面的命令应用配置，会重新创建并重启游戏容器，沿用原游戏安装和存档：
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.image.yml up -d --no-build dst-server
+docker compose exec dst-server python3 -m json.tool /run/dst/status.json
+docker compose ps dst-server
+```
+
+等待两侧完成初始化后，`Master.ready` 与 `Caves.ready` 应同时为 `true`、`overall` 为 `running`，Docker 健康状态会在后续探测中变为 `healthy`。这里只识别完整的 Lua 就绪标记；`secondary shard is now ready!` 这条较早的握手日志不作为新增标记。
 
 ## 轻量镜像与服务器安装目录
 
@@ -35,7 +53,7 @@
 
 1. 首次启动：下载 SteamCMD 到持久化目录，通过 Steam 安装公开分支游戏到 `data/install/master`。
 2. 后续启动：读取本地 `steamapps/appmanifest_343050.acf` 中的 Build ID，并查询 Steam 公开分支 Build ID。
-3. 版本相同且游戏可执行文件存在：跳过游戏下载，直接渲染配置并启动分片。
+3. 版本相同且游戏可执行文件存在：跳过游戏下载，继续同步运行库和渲染配置后启动分片。
 4. 版本不同、清单无法确认或可执行文件缺失：调用 SteamCMD 执行安装/更新。安装失败时不启动分片，保留错误供后台和日志检查。
 
 运行中的服务器不会被后台定时更新。需要更新游戏时，先安排维护并备份，再通过后台重启，或执行：
@@ -46,6 +64,19 @@ docker compose logs -f --tail=100 dst-server
 ```
 
 游戏版本更新不需要重建镜像。已有安装需要临时离线启动时，可在 `dst-server.environment` 中设置 `DST_SKIP_UPDATE: "1"` 并重新创建容器；恢复正常版本检查时移除此配置。无游戏安装时仍会尝试首次下载。
+
+### 启动时修复 Steam Workshop 运行库
+
+每次启动时，在安装/更新结束后、两个分片启动前，监督器会将服务器持久化的 `/opt/steamcmd/linux64/steamclient.so` 同步到 `/opt/dst/bin64/lib64/steamclient.so`。这对应已验证的 Workshop 旧版模组下载修复：此前出现 `Install library folder not found` 和 `OnDownloadPublishedFile [16]`，同步后本次合集的 15 个模组均通过地面与洞穴的加载检查。
+
+- `DST_SKIP_UPDATE=1` 只跳过已有游戏的联网更新检查，本地运行库同步仍执行。
+- 文件内容相同时跳过复制。游戏更新覆盖运行库、或 SteamCMD 更新运行库后，下次启动会重新同步。
+- 替换前把原文件保存到同目录 `steamclient.so.before-steamcmd`；只保留最近一次替换前的备份，相同文件不会改写备份。
+- 复制通过同目录临时文件和原子替换完成；源文件必须具有 ELF x86-64 标识，32 位或文件头不完整的源文件会让启动失败并保留原库。SteamCMD 的 64 位库不存在时会记录提示并保留当前库，兼容已有离线安装。
+
+需要回退时，先停止游戏服，在 `dst-server.environment` 中设置 `DST_SKIP_STEAM_LIBRARY_SYNC: "1"`，将备份还原到 `steamclient.so`，然后按当前使用的 Compose 文件重新创建容器使环境变量生效。恢复自动修复时移除此开关。只还原备份而不关闭同步，下次启动仍会再次应用 SteamCMD 库。
+
+同步只处理服务器挂载目录中的运行库，镜像仍仅包含运行依赖与脚本。新镜像成功发布后，通过修改 `.env` 中的 `DST_GAME_IMAGE`、拉取镜像并使用两个 Compose 文件与 `--no-build` 重建游戏容器即可应用。
 
 ## 本地构建与部署（默认）
 
@@ -61,7 +92,7 @@ docker compose logs -f --tail=100 dst-server
 
 ## 可选的 GitHub Actions 构建
 
-`.github/workflows/dst-image.yml` 仅保留手动触发；没有定时任务，也不随代码推送自动构建。远端已禁用的工作流不会由本次本地修改重新启用。需要发布时，先提交并推送新版工作流，再手动启用并运行。
+`.github/workflows/dst-image.yml` 仅保留手动触发；没有定时任务，也不随代码推送自动构建。需要发布时，先推送待构建的提交，再从 Actions 手动运行 `main`；工作流如果处于禁用状态，需要先启用。构建不会自动部署到服务器。
 
 工作流运行项目测试与类型检查，只构建 `runtime` 目标的 `linux/amd64` 镜像并推送 GHCR：
 

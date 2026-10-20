@@ -4,6 +4,10 @@ import { ZodError, z } from "zod";
 
 import { serverConfigSchema, type ServerConfigInput } from "./schema.js";
 
+// The initial file is an editable draft until its token is configured.
+// Saving still uses serverConfigSchema, which requires a nonempty token.
+const storedServerConfigSchema = serverConfigSchema.extend({ steamToken: z.string() });
+
 const DEFAULT_SERVER_CONFIG = {
   steamToken: "",
   clusterName: "DST Steam Admin",
@@ -26,7 +30,7 @@ function maskSteamToken(steamToken: string) {
 async function readStoredServerConfig(projectRoot: string) {
   const configPath = getServerConfigPath(projectRoot);
   const raw = await fs.readFile(configPath, "utf8");
-  return serverConfigSchema.parse(JSON.parse(raw));
+  return storedServerConfigSchema.parse(JSON.parse(raw));
 }
 
 export async function writeServerConfig(
@@ -72,7 +76,7 @@ export async function readServerConfig(projectRoot: string) {
 
   try {
     parsed = await readStoredServerConfig(projectRoot);
-    steamTokenMasked = maskSteamToken(parsed.steamToken);
+    steamTokenMasked = parsed.steamToken ? maskSteamToken(parsed.steamToken) : "";
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
       throw error;

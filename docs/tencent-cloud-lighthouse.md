@@ -47,9 +47,25 @@ sudo apt install -y ca-certificates curl git
 
 安装 Docker：
 
+先按 [Docker 官方要求](https://docs.docker.com/engine/install/ubuntu/#uninstall-old-versions)移除已安装的发行版冲突包，避免 `docker-compose-v2` 等与官方插件覆盖相同文件：
+
+```bash
+conflicting_packages=()
+while read -r package_name selection; do
+  if [[ "$selection" == install || "$selection" == hold ]]; then
+    conflicting_packages+=("$package_name")
+  fi
+done < <(dpkg --get-selections docker.io docker-compose docker-compose-v2 docker-doc docker-buildx podman-docker containerd runc 2>/dev/null)
+if (( ${#conflicting_packages[@]} )); then
+  sudo apt remove -y "${conflicting_packages[@]}"
+fi
+```
+
+已有未完成安装并报覆盖冲突时，先按 [安装中断后的修复](tencent-cloud-lighthouse-init-script.md#安装中断后的修复)恢复包管理，再继续。
+
 ```bash
 sudo install -m 0755 -d /etc/apt/keyrings
-curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --batch --yes --dearmor -o /etc/apt/keyrings/docker.gpg
 sudo chmod a+r /etc/apt/keyrings/docker.gpg
 ```
 

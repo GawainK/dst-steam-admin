@@ -1,4 +1,4 @@
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 
@@ -72,6 +72,53 @@ describe("server config", () => {
       enableCaves: true,
       masterPort: 10999,
       cavesPort: 11000
+    });
+  });
+
+  it("loads an existing draft with an empty token so it can be configured for the first time", async () => {
+    const projectRoot = mkdtempSync(resolve(tmpdir(), "dst-config-draft-"));
+    tempRoots.push(projectRoot);
+    const configDir = resolve(projectRoot, "data/cluster/admin");
+    const configPath = resolve(configDir, "server-config.json");
+    const draft = {
+      steamToken: "", clusterName: "My Draft", clusterPassword: "",
+      maxPlayers: 8, gameMode: "endless", enableCaves: false,
+      masterPort: 10999, cavesPort: 11000
+    };
+    mkdirSync(configDir, { recursive: true });
+    writeFileSync(configPath, JSON.stringify(draft));
+
+    const response = await requestConfigRouter(
+      createConfigRouter(projectRoot) as unknown as HandleRouter, "/server", "GET"
+    );
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({ ...draft, steamTokenMasked: "" });
+    expect(JSON.parse(readFileSync(configPath, "utf8"))).toEqual(draft);
+
+    const save = await requestConfigRouter(
+      createConfigRouter(projectRoot) as unknown as HandleRouter, "/server", "PUT", draft
+    );
+    expect(save.status).toBe(400);
+    expect(save.body).toMatchObject({ fields: { steamToken: [expect.any(String)] } });
+    expect(JSON.parse(readFileSync(configPath, "utf8"))).toEqual(draft);
+
+    await writeServerConfig(projectRoot, { ...draft, gameMode: "endless", steamToken: "abc123" });
+    await expect(readServerConfig(projectRoot)).resolves.toMatchObject({
+      steamToken: "", steamTokenMasked: "abc***", clusterName: "My Draft"
+    });
+  });
+
+  it("still rejects other invalid fields when reading a draft with no token", async () => {
+    const projectRoot = mkdtempSync(resolve(tmpdir(), "dst-config-invalid-draft-"));
+    tempRoots.push(projectRoot);
+    const configDir = resolve(projectRoot, "data/cluster/admin");
+    mkdirSync(configDir, { recursive: true });
+    writeFileSync(resolve(configDir, "server-config.json"), JSON.stringify({
+      steamToken: "", clusterName: "Draft", clusterPassword: "", maxPlayers: 0,
+      gameMode: "survival", enableCaves: true, masterPort: 10999, cavesPort: 11000
+    }));
+    await expect(readServerConfig(projectRoot)).rejects.toMatchObject({
+      issues: expect.arrayContaining([expect.objectContaining({ path: ["maxPlayers"] })])
     });
   });
 

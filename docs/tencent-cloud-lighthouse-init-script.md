@@ -11,6 +11,7 @@
 脚本会完成这些事情：
 
 - 校验当前系统是否为 Ubuntu
+- 移除已安装的 Ubuntu Docker/Compose/Buildx 及 containerd/runc 冲突包，再安装官方版本；保留 Docker 数据目录
 - 安装 `ca-certificates`、`curl`、`git`、`gnupg`
 - 配置 Docker 官方 APT 源
 - 安装 Docker Engine、Buildx、Compose Plugin
@@ -45,6 +46,33 @@ chmod +x /home/ubuntu/init-tencent-lighthouse.sh
 ```bash
 TARGET_USER=myuser /home/myuser/init-tencent-lighthouse.sh
 ```
+
+## 安装中断后的修复
+
+若出现 `trying to overwrite .../docker-compose`，且文件属于 `docker-compose-v2`，说明 Ubuntu 的 Compose 包与 Docker 官方插件冲突。先在服务器执行：
+
+```bash
+sudo dpkg --remove docker-compose-v2
+sudo apt-get --fix-broken install
+sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+sudo systemctl daemon-reload
+sudo systemctl reset-failed docker.service
+sudo systemctl enable --now docker
+sudo usermod -aG docker "$(id -un)"
+sudo docker info
+docker compose version
+```
+
+修复完成后退出 SSH 并重新登录，使 Docker 用户组权限生效。
+
+这些命令不会清空 `data/` 或 `/var/lib/docker`。如果安装已修复但 Docker 仍启动失败，先收集日志再判断原因：
+
+```bash
+sudo systemctl status docker.service containerd.service --no-pager -l
+sudo journalctl -u docker.service -u containerd.service -n 100 --no-pager
+```
+
+冲突包列表与安装顺序参考 [Docker 官方 Ubuntu 安装说明](https://docs.docker.com/engine/install/ubuntu/#uninstall-old-versions)。
 
 ## After Script
 

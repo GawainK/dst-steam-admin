@@ -88,6 +88,8 @@ sudo systemctl enable --now docker
 
 脚本安装 Docker Engine、Buildx 和 Compose Plugin，并把当前用户加入 Docker 用户组。已有可用 Docker 的服务器可以跳过安装。官方安装方式见 [Docker Engine on Ubuntu](https://docs.docker.com/engine/install/ubuntu/)。
 
+脚本会先移除已安装的发行版冲突包，再安装 Docker 官方版本；不会清空 Docker 数据。如果安装已因 `docker-compose-v2` 文件覆盖冲突中断，先执行 [安装中断后的修复](tencent-cloud-lighthouse-init-script.md#安装中断后的修复)，再继续验证 Docker。
+
 退出 SSH 后重新登录，使用户组权限生效，再检查：
 
 ```bash
@@ -216,6 +218,8 @@ docker compose exec dst-server \
 ```
 
 实际文件还包含 PID、退出码、游戏版本、Build ID、心跳时间及 `forced`。关闭洞穴时只要求 Master 就绪。
+
+新版监督器在每次启动分片前同步 SteamCMD 的 64 位 `steamclient.so`，处理已验证的 Workshop 模组下载问题；相同文件会跳过，游戏更新后会重新应用。备份、离线行为和回退开关见 [启动时修复 Steam Workshop 运行库](dst-runtime-and-images.md#启动时修复-steam-workshop-运行库)。洞穴日志已完成 Lua 就绪但状态仍为 `false` 的旧镜像，可按 [洞穴就绪识别](dst-runtime-and-images.md#旧镜像的洞穴就绪识别)配置临时标记，或切换到已修复的新镜像。
 
 ### 6.3 从玩家侧验收
 

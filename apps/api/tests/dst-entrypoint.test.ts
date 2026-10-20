@@ -17,6 +17,15 @@ function startServer(enableCaves = true, options: Record<string, string> = {}) {
   mkdirSync(resolve(cluster, "admin"), { recursive: true });
   mkdirSync(resolve(install, "bin64"), { recursive: true });
   mkdirSync(scripts);
+  if (options.WITH_STEAM_LIBRARY === "1") {
+    mkdirSync(resolve(root, "steam/linux64"), { recursive: true });
+    mkdirSync(resolve(install, "bin64/lib64"));
+    const header = Buffer.alloc(20);
+    header.set([0x7f, 0x45, 0x4c, 0x46, 2, 1]);
+    header.writeUInt16LE(62, 18);
+    writeFileSync(resolve(root, "steam/linux64/steamclient.so"), Buffer.concat([header, Buffer.from("steamcmd")]));
+    writeFileSync(resolve(install, "bin64/lib64/steamclient.so"), "bundled");
+  }
   writeFileSync(resolve(cluster, "admin/server-config.json"), JSON.stringify({
     steamToken: "test-token", clusterName: "Test", enableCaves,
     masterPort: 10999, cavesPort: 11000
@@ -38,13 +47,19 @@ root = Path(os.environ['TEST_ROOT'])
 (root / (shard + '.pid')).write_text(str(os.getpid()))
 (root / (shard + '.args')).write_text(json.dumps(args))
 (root / (shard + '.cwd')).write_text(os.getcwd())
+if os.environ.get('WITH_STEAM_LIBRARY') == '1':
+    (root / (shard + '.steamclient')).write_bytes((Path(os.environ['DST_INSTALL_ROOT']) / 'bin64/lib64/steamclient.so').read_bytes())
 def stop(sig, frame):
     if os.environ.get('IGNORE_STOP') == '1': return
     (root / (shard + '.stopped')).write_text('signal')
     sys.exit(0)
 signal.signal(signal.SIGTERM, stop)
 print('game ready', flush=True)
-if shard != os.environ.get('HOLD_READY'):
+if shard == 'Caves' and os.environ.get('CAVES_SHARD_READY') == '1':
+    print('[Shard] secondary shard is now ready!', flush=True)
+    if shard != os.environ.get('HOLD_READY'):
+        print('[Shard] secondary shard LUA is now ready!', flush=True)
+elif shard != os.environ.get('HOLD_READY'):
     print('Sim paused', flush=True)
 started = time.monotonic()
 while True:
@@ -59,7 +74,7 @@ while True:
   const env = {
     ...process.env, TEST_ROOT: root,
     DST_CLUSTER_ROOT: cluster, DST_MODS_ROOT: resolve(root, "mods"),
-    DST_INSTALL_ROOT: install, DST_SCRIPT_ROOT: scripts,
+    DST_INSTALL_ROOT: install, DST_SCRIPT_ROOT: scripts, DST_STEAMCMD_ROOT: resolve(root, "steam"),
     DST_TEMPLATE_ROOT: resolve(repoRoot, "docker/dst"),
     DST_STATE_FILE: resolve(root, "runtime/status.json"),
     DST_SHUTDOWN_TIMEOUT: "0.4", DST_TERMINATE_TIMEOUT: "0.2",
@@ -106,6 +121,27 @@ afterEach(async () => {
 });
 
 describe("combined DST supervision", () => {
+  it("can retain the game library when explicitly opting out for rollback", async () => {
+    const server = startServer(true, { WITH_STEAM_LIBRARY: "1", DST_SKIP_STEAM_LIBRARY_SYNC: "1" });
+    await waitUntil(() => server.output().includes("[Master] Sim paused") && server.output().includes("[Caves] Sim paused"));
+    for (const shard of ["Master", "Caves"]) {
+      expect(readFileSync(resolve(server.root, `${shard}.steamclient`), "utf8")).toBe("bundled");
+    }
+    expect(existsSync(resolve(server.root, "install/bin64/lib64/steamclient.so.before-steamcmd"))).toBe(false);
+  });
+
+  it.each(["0", "1"])("syncs the Steam library before either shard starts with DST_SKIP_UPDATE=%s", async (skip) => {
+    const server = startServer(true, { WITH_STEAM_LIBRARY: "1", DST_SKIP_UPDATE: skip });
+    await waitUntil(() => server.output().includes("[Master] Sim paused") && server.output().includes("[Caves] Sim paused"));
+    const expected = readFileSync(resolve(server.root, "steam/linux64/steamclient.so"));
+    for (const shard of ["Master", "Caves"]) {
+      expect(readFileSync(resolve(server.root, `${shard}.steamclient`))).toEqual(expected);
+    }
+    expect(readFileSync(resolve(server.root, "install/bin64/lib64/steamclient.so.before-steamcmd"), "utf8")).toBe("bundled");
+    expect(existsSync(resolve(server.root, "installs"))).toBe(skip !== "1");
+    await server.health();
+  });
+
   it("installs once, supervises both shards and saves before stopping", async () => {
     const server = startServer();
     await waitUntil(() => server.output().includes("[Master] Sim paused") && server.output().includes("[Caves] Sim paused"));
@@ -143,6 +179,36 @@ describe("combined DST supervision", () => {
   it("waits for every enabled shard instead of trusting only Master readiness", async () => {
     const server = startServer(true, { HOLD_READY: "Caves" });
     await waitUntil(() => server.output().includes("[Caves] game ready"));
+    expect(server.state()).toMatchObject({ overall: "starting", shards: [{ name: "Master", ready: true }, { name: "Caves", ready: false }] });
+    await expect(server.health()).rejects.toThrow();
+  });
+
+  it.each<Record<string, string>>([
+    {},
+    { DST_CAVES_READY_MARKERS: "[Shard] secondary shard LUA is now ready!" }
+  ])("recognizes Caves Lua readiness without Sim paused (%j)", async (markers) => {
+    const server = startServer(true, { CAVES_SHARD_READY: "1", ...markers });
+    await waitUntil(() => server.output().includes("[Master] Sim paused") && server.output().includes("[Caves] [Shard] secondary shard LUA is now ready!"));
+    expect(server.output()).not.toContain("[Caves] Sim paused");
+    expect(server.state()).toMatchObject({
+      overall: "running", shards: [{ name: "Master", ready: true }, { name: "Caves", ready: true }]
+    });
+    await server.health();
+  });
+
+  it("waits for Caves Lua readiness after the initial shard handshake", async () => {
+    const server = startServer(true, { CAVES_SHARD_READY: "1", HOLD_READY: "Caves" });
+    await waitUntil(() => server.output().includes("[Master] Sim paused") && server.output().includes("[Caves] [Shard] secondary shard is now ready!"));
+    expect(server.state()).toMatchObject({ overall: "starting", shards: [{ name: "Master", ready: true }, { name: "Caves", ready: false }] });
+    await expect(server.health()).rejects.toThrow();
+  });
+
+  it.each<Record<string, string>>([
+    { DST_READY_MARKERS: "Sim paused" },
+    { DST_CAVES_READY_MARKERS: "custom-ready" }
+  ])("preserves custom readiness marker overrides (%j)", async (markers) => {
+    const server = startServer(true, { CAVES_SHARD_READY: "1", ...markers });
+    await waitUntil(() => server.output().includes("[Master] Sim paused") && server.output().includes("[Caves] [Shard] secondary shard LUA is now ready!"));
     expect(server.state()).toMatchObject({ overall: "starting", shards: [{ name: "Master", ready: true }, { name: "Caves", ready: false }] });
     await expect(server.health()).rejects.toThrow();
   });
