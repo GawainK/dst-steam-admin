@@ -55,6 +55,9 @@ def stop(sig, frame):
     sys.exit(0)
 signal.signal(signal.SIGTERM, stop)
 print('game ready', flush=True)
+if shard == 'Master' and os.environ.get('HOLD_MASTER_READY') == '1':
+    while not (root / 'release-master-ready').exists():
+        time.sleep(0.01)
 if shard == 'Caves' and os.environ.get('CAVES_SHARD_READY') == '1':
     print('[Shard] secondary shard is now ready!', flush=True)
     if shard != os.environ.get('HOLD_READY'):
@@ -177,8 +180,11 @@ describe("combined DST supervision", () => {
   });
 
   it("waits for every enabled shard instead of trusting only Master readiness", async () => {
-    const server = startServer(true, { HOLD_READY: "Caves" });
+    const server = startServer(true, { HOLD_READY: "Caves", HOLD_MASTER_READY: "1" });
     await waitUntil(() => server.output().includes("[Caves] game ready"));
+    // Caves can emit its startup log before Master reaches readiness.
+    writeFileSync(resolve(server.root, "release-master-ready"), "");
+    await waitUntil(() => server.output().includes("[Master] Sim paused"));
     expect(server.state()).toMatchObject({ overall: "starting", shards: [{ name: "Master", ready: true }, { name: "Caves", ready: false }] });
     await expect(server.health()).rejects.toThrow();
   });
