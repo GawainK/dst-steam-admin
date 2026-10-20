@@ -2,9 +2,9 @@
 
 适用环境：Ubuntu 22.04 / 24.04、x86_64 云服务器，地面与洞穴运行在同一个 `dst-server` 容器中，保留现有 Vue / Express 管理后台。
 
-校对基线：`39ba0d5`（合并地面洞穴进程管理并新增版本化镜像构建），整理日期：2026-10-20。
+架构基线：`39ba0d5`（合并地面洞穴进程管理）；本文已按轻量运行镜像与服务器持久化安装方案更新，整理日期：2026-10-20。
 
-> 整理本文时，代码已在本地提交，尚未由本次工作推送；实际 Docker 镜像构建、地面与洞穴游戏联调及远端镜像发布仍未完成。下列操作是部署与验收流程，不代表真实环境已经验证通过。首次部署建议使用源码构建，预装镜像需确认已发布后再切换。
+> 镜像只包含运行依赖与脚本。游戏首次启动时安装到服务器的 `data/install/master`，后续启动按 Steam 公开分支 Build ID 检查更新。下列操作是部署与验收流程，不代表真实服务器已经验收；使用远端轻量镜像前需要先确认其已发布。
 
 ## 目录
 
@@ -54,7 +54,7 @@ df -h
 git push origin main
 ```
 
-推送会包含新增的 GitHub Actions 工作流；仓库允许运行且符合触发条件时，可能开始构建并发布游戏镜像。本文的源码部署流程不依赖该镜像发布成功。
+GitHub Actions 工作流仅手动触发，推送代码不会自动构建；此前禁用的远端工作流保持禁用。工作流只发布轻量运行镜像，不下载游戏。本文的源码部署流程不依赖远端镜像发布。
 
 从本地电脑登录服务器：
 
@@ -351,7 +351,7 @@ docker compose up -d --build dst-server
 docker compose logs -f --tail=100 dst-server
 ```
 
-只更新游戏本身、启动脚本未变化时，源码模式重启即可触发 SteamCMD 检查：
+只更新游戏本身、启动脚本未变化时，重启即可触发 SteamCMD 版本检查，无需重建镜像：
 
 ```bash
 docker compose restart dst-server
@@ -359,14 +359,14 @@ docker compose restart dst-server
 
 这两种操作都会中断玩家连接。游戏安装位于持久化目录，不因容器重建而主动清空；实际是否下载更新取决于 Steam 版本检查结果。
 
-### 9.3 切换预装游戏镜像
+### 9.3 使用已发布的轻量运行镜像
 
-先确认 GitHub Actions 已成功发布对应镜像；仅有工作流文件或本地提交并不代表镜像已经存在。完整构建机制见 [分片监督与预装镜像](dst-runtime-and-images.md)。
+先确认手动运行的 GitHub Actions 已成功发布新版轻量镜像；仅有工作流文件或本地提交并不代表镜像已经存在。旧的 `build-*` 预装标签不适用于本方案。完整构建机制见 [分片监督与轻量镜像](dst-runtime-and-images.md)。
 
 在 `.env` 中设置实际存在的完整版本标签，例如：
 
 ```dotenv
-DST_GAME_IMAGE=ghcr.io/gawaink/dst-steam-admin/dst-server:build-实际BuildID-源码SHA前12位
+DST_GAME_IMAGE=ghcr.io/gawaink/dst-steam-admin/dst-server:sha-源码SHA前12位
 ```
 
 也可以使用镜像 digest。不要把该示例当作已经发布的标签直接拉取。私有镜像先交互式登录：
@@ -389,9 +389,9 @@ docker compose -f docker-compose.yml -f docker-compose.image.yml \
 docker compose logs -f --tail=100 dst-server
 ```
 
-预装版从镜像同步游戏文件到原来的安装卷，保留存档和用户 Mod 配置。切换预装版本需要始终使用两个 Compose 文件以及 `--no-build`，避免误建本地源码版。日常后台启停与普通 `start`、`stop`、`restart` 继续操作同一个已创建容器。
+轻量镜像不包含游戏。启动时把游戏安装或更新到原来的服务器目录，继续保留存档和用户 Mod 配置。重建容器时使用两个 Compose 文件以及 `--no-build`。日常后台启停与普通 `start`、`stop`、`restart` 继续操作同一个已创建容器。
 
-预装模式通过更换镜像更新游戏，重启不会自动下载 Steam 新版。回退镜像同样需要修改镜像引用并重新创建容器；回退程序版本不等于回退存档，也不能保证旧程序兼容新版本存档。
+游戏更新通过重启时的 SteamCMD 版本检查完成，无需更换镜像；运行中的游戏不会被定时更新。回退镜像只回退运行依赖和管理脚本，不会回退持久化的游戏文件或存档。
 
 ## 10. 备份、恢复和整机迁移
 
@@ -415,7 +415,7 @@ docker compose logs -f --tail=100 dst-server
 | 地面、洞穴世界及运行配置 | `data/cluster/DoNotStarveTogether/Cluster/` | 包含，排除 Token 文件 |
 | 后台世界配置与 Token | `data/cluster/admin/server-config.json` | 不包含 |
 | Mod 源配置 | `data/mods/` | 不包含；Cluster 中已有的分片副本会随世界打包 |
-| 后台密码、预装镜像引用 | `.env` | 不包含 |
+| 后台密码、运行镜像引用 | `.env` | 不包含 |
 | 世界备份归档 | `data/backups/` | 需要单独转存 |
 
 运行配置中包含管理员名单、各分片的配置文件等。完整迁移可以按第 7 节的私有归档命令备份 `.env`、`data/cluster` 与 `data/mods`，并单独转存 `data/backups`；无需把可重新安装的游戏文件当作唯一恢复来源。
@@ -474,7 +474,7 @@ docker compose exec dst-server \
 | 容器突然退出 | 监督器记录的退出码、内存、磁盘空间 |
 | 进入“洞穴”却出现地面 | 洞穴生成预设、是否已经生成了错误世界 |
 | 修改配置后无变化 | 是否保存成功，是否重启了正确的游戏容器 |
-| 预装镜像拉取失败 | 标签是否存在、GHCR 可见性、登录凭据及网络 |
+| 运行镜像拉取失败 | 标签是否存在、GHCR 可见性、登录凭据及网络 |
 
 `unhealthy` 时先找原因，不要仅修改就绪标记让状态变绿。确实因日志措辞不同需要调整时，新镜像应在 `dst-server.environment` 设置 `DST_READY_MARKERS`，洞穴可以通过 `DST_CAVES_READY_MARKERS` 单独覆盖；修改后重新创建游戏容器。仅无健康检查的旧镜像才使用 `admin-api` 的日志标记配置。
 
@@ -491,6 +491,6 @@ docker compose exec dst-server \
 ## 相关文档
 
 - [部署说明](deployment.md)
-- [分片监督与预装镜像](dst-runtime-and-images.md)
+- [分片监督与轻量镜像](dst-runtime-and-images.md)
 - [腾讯云轻量服务器部署](tencent-cloud-lighthouse.md)
 - [Ubuntu 初始化脚本说明](tencent-cloud-lighthouse-init-script.md)

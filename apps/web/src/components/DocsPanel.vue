@@ -52,7 +52,7 @@ docker compose restart dst-server
 
 # 洞穴开关保存后重启 dst-server，容器内按开关启动一个或两个分片
 
-# 预装镜像与版本化构建：详见仓库 docs/dst-runtime-and-images.md
+# 轻量镜像与服务器安装：详见仓库 docs/dst-runtime-and-images.md
 # 切换镜像需使用 docker-compose.image.yml 与 --no-build
 
 # 存档备份/恢复（存档备份面板）

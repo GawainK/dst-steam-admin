@@ -56,16 +56,6 @@ while True:
             (root / (shard + '.stopped')).write_text('graceful')
             sys.exit(0)
 `, { mode: 0o755 });
-  if (options.DST_UPDATE_MODE === "image") {
-    const seed = resolve(root, "image");
-    mkdirSync(resolve(seed, "bin64"), { recursive: true });
-    mkdirSync(resolve(seed, "steamapps"));
-    copyFileSync(resolve(install, "bin64/dontstarve_dedicated_server_nullrenderer_x64"), resolve(seed, "bin64/dontstarve_dedicated_server_nullrenderer_x64"));
-    writeFileSync(resolve(seed, "steamapps/appmanifest_343050.acf"), '"buildid" "123"\n');
-    writeFileSync(resolve(seed, "version.txt"), "999999");
-    rmSync(install, { recursive: true });
-    options = { ...options, DST_IMAGE_ROOT: seed };
-  }
   const env = {
     ...process.env, TEST_ROOT: root,
     DST_CLUSTER_ROOT: cluster, DST_MODS_ROOT: resolve(root, "mods"),
@@ -167,12 +157,11 @@ describe("combined DST supervision", () => {
     expect(server.state().forced).toBe(true);
   });
 
-  it("seeds a preinstalled image into the existing volume without invoking SteamCMD", async () => {
+  it("checks the server installation even if the old image mode is still configured", async () => {
     const server = startServer(false, { DST_UPDATE_MODE: "image" });
     await waitUntil(() => server.output().includes("[Master] Sim paused"));
-    expect(existsSync(resolve(server.root, "installs"))).toBe(false);
-    expect(readFileSync(resolve(server.root, "install/version.txt"), "utf8")).toBe("999999");
-    expect(server.state().version).toBe("999999");
+    expect(readFileSync(resolve(server.root, "installs"), "utf8")).toBe("install\n");
+    await server.health();
   });
 
   it("cancels an in-progress installation when the container stops", async () => {

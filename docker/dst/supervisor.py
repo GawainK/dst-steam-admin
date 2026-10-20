@@ -6,7 +6,6 @@ import os
 from pathlib import Path
 import re
 import selectors
-import shutil
 import signal
 import subprocess
 import sys
@@ -107,21 +106,9 @@ class Supervisor:
             raise subprocess.CalledProcessError(code, command)
 
     def prepare(self):
-        mode = os.environ.get("DST_UPDATE_MODE", "startup")
-        if mode not in ("startup", "image"):
-            raise ValueError("DST_UPDATE_MODE must be startup or image")
-        if mode == "image":
-            seed = Path(os.environ.get("DST_IMAGE_ROOT", "/opt/dst-image"))
-            if not build_id(seed) or not (seed / BINARY).is_file():
-                raise ValueError("Preinstalled image is missing its game files or build manifest")
-            if build_id(self.install) != build_id(seed) or not (self.install / BINARY).is_file():
-                print("[Setup] Seeding preinstalled game into the persistent installation", flush=True)
-                # Commit the manifest last. Interrupted copies are retried next time.
-                shutil.copytree(seed, self.install, dirs_exist_ok=True,
-                                ignore=shutil.ignore_patterns("appmanifest_343050.acf"))
-                (self.install / MANIFEST).parent.mkdir(parents=True, exist_ok=True)
-                shutil.copy2(seed / MANIFEST, self.install / MANIFEST)
-        elif os.environ.get("DST_SKIP_UPDATE") != "1" or not (self.install / BINARY).is_file():
+        # Both shards use the server's persistent installation, independent of
+        # the runtime image version. Existing offline starts remain supported.
+        if os.environ.get("DST_SKIP_UPDATE") != "1" or not (self.install / BINARY).is_file():
             self.run_setup([str(self.scripts / "dst-install-server")])
         if not os.access(self.install / BINARY, os.X_OK):
             raise ValueError("DST installation did not produce an executable server")

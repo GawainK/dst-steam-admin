@@ -1,4 +1,4 @@
-# DST 分片监督与预装镜像
+# DST 分片监督与轻量镜像
 
 本次实现参考了 [LetsStarveTogether 的进程管理](https://github.com/LetsStarveTogether/dst-server/blob/main/crates/dst-server/src/process.rs)与 [superjump22 的镜像构建流程](https://github.com/superjump22/dontstarve-server-docker/blob/main/.github/workflows/build.yml)。保留 Vue/Express 后台、现有接口、洞穴开关和所有数据挂载路径。
 
@@ -15,58 +15,78 @@
 
 `DST_SHUTDOWN_TIMEOUT`（0–45 秒，默认 40）与 `DST_TERMINATE_TIMEOUT`（0–10 秒，默认 5）总计不超过 Compose 的 60 秒停服窗口。状态文件在每次启动重新初始化，不沿用旧分片的就绪缓存。
 
-## 两种镜像模式
+## 轻量镜像与服务器安装目录
 
-| 模式 | 构建目标 | 游戏更新方式 |
+镜像只包含 Debian 运行依赖、Python 监督器、配置模板和启动脚本，不包含游戏文件，也不在构建阶段运行 SteamCMD。地面和洞穴仍在同一个 `dst-server` 容器中，共用服务器上的一份游戏安装。
+
+| 服务器目录（项目根目录下） | 容器目录 | 用途 |
 | --- | --- | --- |
-| 本地源码部署（默认） | `runtime` | 启动时用 SteamCMD 检查/更新；保留 `DST_SKIP_UPDATE=1` 对已有安装的离线启动支持 |
-| 预装游戏 | `preinstalled` | 构建时下载并验证 Build ID；启动时从镜像同步到原安装卷，不再请求 SteamCMD |
+| `data/install/master` | `/opt/dst` | 游戏程序、版本清单和下载的 Mod |
+| `data/steamcmd/master` | `/opt/steamcmd` | SteamCMD 客户端及更新缓存 |
+| `data/steamcmd/master-home` | `/root/Steam` | Steam 客户端运行数据 |
+| `data/cluster` | `/var/lib/dst/cluster` | 后台配置、Token、地面与洞穴存档 |
+| `data/mods` | `/var/lib/dst/mods` | 用户 Mod 配置 |
 
-预装版把游戏放在 `/opt/dst-image`，因此原来的 `data/install/master:/opt/dst` 挂载不会遮住镜像内游戏。首次运行或换用不同 Build ID 的镜像时，将游戏同步到安装卷；最后提交 appmanifest，以便中断后重试。数据卷中的 Mod 与存档保留，之后重新渲染用户配置。相同 Build ID 且二进制存在时直接复用。
+这些都是宿主机的目录挂载，容器重建后继续复用。`.dockerignore` 排除了 `data/`，本地游戏安装和存档不会进入构建上下文。轻量化减少镜像传输和构建占用，服务器仍需为游戏安装、Mod 和备份预留磁盘空间。
 
-预装版环境为 `DST_UPDATE_MODE=image`，由所选镜像决定游戏版本；本地版为 `startup`。预装模式不会自动切到 Steam 最新版本，更新通过换镜像并重建游戏容器完成。切回本地模式可以继续使用相同数据目录。
+## 首次安装与后续更新
 
-## 自动构建
+每次启动 `dst-server` 时，监督器先运行安装器，成功后再启动启用的分片：
 
-`.github/workflows/dst-image.yml` 在 main 分支游戏相关代码更新、手动触发，或每半小时检查一次公开游戏 Build ID。GitHub 的调度时间可能延迟；这里只检查和构建镜像，不操作已部署的服务器。
+1. 首次启动：下载 SteamCMD 到持久化目录，通过 Steam 安装公开分支游戏到 `data/install/master`。
+2. 后续启动：读取本地 `steamapps/appmanifest_343050.acf` 中的 Build ID，并查询 Steam 公开分支 Build ID。
+3. 版本相同且游戏可执行文件存在：跳过游戏下载，直接渲染配置并启动分片。
+4. 版本不同、清单无法确认或可执行文件缺失：调用 SteamCMD 执行安装/更新。安装失败时不启动分片，保留错误供后台和日志检查。
 
-1. 从 `api.steamcmd.net` 读取公开分支元数据，校验数字格式。
-2. 组合游戏 Build ID 和源码提交 SHA；该组合镜像已存在时跳过构建。
-3. 运行项目测试和类型检查，再通过 SteamCMD 下载游戏；实际安装 Build ID 必须与目标一致，否则构建失败，避免发布错标版本。
-4. 仅构建 `linux/amd64` 并推送到 GHCR：
-   - `ghcr.io/<owner>/<repo>/dst-server:latest`
-   - `:build-<Build ID>`（同一游戏版本可能随项目代码更新而重建）
-   - `:build-<Build ID>-<前12位源码SHA>`（用于精确选择游戏与代码组合）
+运行中的服务器不会被后台定时更新。需要更新游戏时，先安排维护并备份，再通过后台重启，或执行：
 
-首次使用需要仓库启用 Actions，允许工作流写 Packages；按部署环境需要设置包的可见性或先登录 GHCR。本次只新增工作流文件，未在远端运行或发布。`DST_BUILD_ID` 是校验目标，不是 Steam 历史版本下载参数；若检查与下载之间游戏更新，构建会失败，下一次重新解析最新版本再构建。
+```bash
+docker compose restart dst-server
+docker compose logs -f --tail=100 dst-server
+```
 
-## 部署预装版
+游戏版本更新不需要重建镜像。已有安装需要临时离线启动时，可在 `dst-server.environment` 中设置 `DST_SKIP_UPDATE: "1"` 并重新创建容器；恢复正常版本检查时移除此配置。无游戏安装时仍会尝试首次下载。
 
-先按旧版本迁移说明停止旧的双容器（如果还有），然后在 `.env` 添加所需镜像。建议选择完整版本标签或 digest，而不是依赖浮动的 latest：
+## 本地构建与部署（默认）
+
+```bash
+# 只构建依赖和脚本，不下载游戏
+docker compose build dst-server
+# 首次启动时下载到服务器目录；已有安装按版本检查更新
+docker compose up -d dst-server
+docker compose logs -f --tail=100 dst-server
+```
+
+后台仍通过原有 API 控制同一个容器。已有服务器可以直接 `docker compose up -d --build dst-server` 切换，继续使用原安装、Mod 和存档；无需删除 `data/` 或重新生成世界。旧的 `DST_UPDATE_MODE` / `DST_IMAGE_ROOT` 已不再参与运行逻辑，可以从自定义配置中移除。`data/install/caves` 和旧洞穴 SteamCMD 目录不主动删除。
+
+## 可选的 GitHub Actions 构建
+
+`.github/workflows/dst-image.yml` 仅保留手动触发；没有定时任务，也不随代码推送自动构建。远端已禁用的工作流不会由本次本地修改重新启用。需要发布时，先提交并推送新版工作流，再手动启用并运行。
+
+工作流运行项目测试与类型检查，只构建 `runtime` 目标的 `linux/amd64` 镜像并推送 GHCR：
+
+- `ghcr.io/<owner>/<repo>/dst-server:latest`
+- `ghcr.io/<owner>/<repo>/dst-server:sha-<源码SHA前12位>`
+
+构建不查询游戏版本，也不下载游戏。镜像标签表示运行脚本版本，与服务器上的游戏 Build ID 独立。首次发布需要允许工作流写 Packages，并按部署环境设置包可见性或登录 GHCR。
+
+## 拉取轻量镜像部署
+
+确认新版轻量镜像已经发布后，在 `.env` 设置实际存在的标签或 digest。旧的 `build-*` 预装标签不适用于本方案：
 
 ```dotenv
-DST_GAME_IMAGE=ghcr.io/gawaink/dst-steam-admin/dst-server:build-<Build ID>-<源码SHA前12位>
+DST_GAME_IMAGE=ghcr.io/gawaink/dst-steam-admin/dst-server:sha-<源码SHA前12位>
 ```
 
 ```bash
-# 先重建后台，使其支持容器健康状态；已有游戏容器暂不受影响
+# 更新后台
 docker compose up -d --build admin-api admin-web
-# 拉取并换用游戏镜像，会中断游戏；不删除数据卷
+# 拉取并切换运行镜像；游戏依然下载/更新到服务器目录
 docker compose -f docker-compose.yml -f docker-compose.image.yml pull dst-server
 docker compose -f docker-compose.yml -f docker-compose.image.yml up -d --no-build dst-server
 docker compose logs -f --tail=100 dst-server
 ```
 
-本地构建预装版（需要 Docker、Steam 网络与足够磁盘空间）：
+后续重建已拉取镜像的容器时，继续使用两个 Compose 文件与 `--no-build`。后台启停及普通 `start` / `stop` / `restart` 操作同一个已创建容器。
 
-```bash
-node scripts/dst/image-version.mjs
-# 将输出的 buildId 填入下方
-docker build --platform linux/amd64 --target preinstalled \
-  --build-arg DST_BUILD_ID=<Build ID> \
-  -f docker/dst/Dockerfile -t dst-server:preinstalled .
-# .env 设置 DST_GAME_IMAGE=dst-server:preinstalled
-# 使用上面的双 Compose 文件与 --no-build 启动；本地镜像无需 pull
-```
-
-`data/install/caves` 和旧洞穴 SteamCMD 目录仍不主动删除。更新/回退游戏镜像也不等于回退存档；存档恢复继续通过原后台备份功能执行。
+回退运行镜像只回退依赖和管理脚本，不会回退服务器上的游戏文件或存档；下一次正常启动仍检查 Steam 公开分支。存档恢复继续通过原后台备份功能执行。

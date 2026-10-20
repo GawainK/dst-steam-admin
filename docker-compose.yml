@@ -51,6 +51,7 @@ services:
     volumes:
       - ./data/cluster:/var/lib/dst/cluster
       - ./data/mods:/var/lib/dst/mods
+      # 游戏首次启动下载到服务器目录；后续按版本更新，不写入镜像层。
       # 复用旧地面的安装和 SteamCMD；两个进程共享游戏文件，存档仍分别保存。
       - ./data/install/master:/opt/dst
       - ./data/steamcmd/master:/opt/steamcmd

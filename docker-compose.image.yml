@@ -1,4 +1,4 @@
 # Use with docker-compose.yml and --no-build. The base data volumes stay unchanged.
 services:
   dst-server:
-    image: ${DST_GAME_IMAGE:?Set DST_GAME_IMAGE to a preinstalled game image tag or digest}
+    image: ${DST_GAME_IMAGE:?Set DST_GAME_IMAGE to a lightweight runtime image tag or digest}

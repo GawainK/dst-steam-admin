@@ -28,4 +28,4 @@ docker compose up -d --build
 
 详细说明见 [docs/deployment.md](docs/deployment.md)。
 
-分片监督、健康检查和预装游戏镜像构建/部署见 [docs/dst-runtime-and-images.md](docs/dst-runtime-and-images.md)。
+分片监督、健康检查和轻量运行镜像构建/部署见 [docs/dst-runtime-and-images.md](docs/dst-runtime-and-images.md)。

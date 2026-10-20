@@ -157,7 +157,7 @@ docker compose logs --tail=50 admin-web
 
 ## 服务器状态：启动中 vs 运行中
 
-新镜像由容器内监督器跟踪所有已启用分片，并通过 Docker Health 向后台报告状态；不会只因为 Master 就绪就把尚未就绪的洞穴也当成运行中。无健康检查的旧镜像沿用下面的日志判定。构建与部署预装镜像见 [分片监督与镜像说明](dst-runtime-and-images.md)。
+新镜像由容器内监督器跟踪所有已启用分片，并通过 Docker Health 向后台报告状态；不会只因为 Master 就绪就把尚未就绪的洞穴也当成运行中。无健康检查的旧镜像沿用下面的日志判定。构建与部署轻量运行镜像见 [分片监督与镜像说明](dst-runtime-and-images.md)。
 
 `docker compose restart` 一返回容器就是 `running`，但容器里的 DST 进程还要数分钟加载世界、连接分片。所以后台状态除了看容器是否 `running`，还会扫 `dst-server` 中 Master 的最近日志确认游戏进程是否**真正就绪**：
 

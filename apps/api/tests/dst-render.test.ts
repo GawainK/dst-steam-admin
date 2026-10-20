@@ -274,4 +274,15 @@ describe("dst render config script", () => {
     // provided by libcurl3-gnutls (distinct from libcurl4's libcurl.so.4).
     expect(dockerfile).toContain("libcurl3-gnutls");
   });
+
+  it("builds only the runtime without downloading or copying game files into an image", () => {
+    const dockerfile = readFileSync(resolve(repoRoot, "docker/dst/Dockerfile"), "utf8");
+    const workflow = readFileSync(resolve(repoRoot, ".github/workflows/dst-image.yml"), "utf8");
+    expect(dockerfile.match(/^FROM .+$/gm)).toEqual(["FROM debian:bookworm-slim AS runtime"]);
+    const instructions = dockerfile.replace(/\\\n/g, " ");
+    expect(instructions).not.toMatch(/(?:^RUN\s+|&&\s+)(?:\w+=\S+\s+)*\/usr\/local\/bin\/dst-install-server\b/m);
+    expect(dockerfile).not.toContain("/opt/dst-image");
+    expect(workflow).toContain("target: runtime");
+    expect(workflow).not.toMatch(/schedule:|DST_BUILD_ID|image-version\.mjs/);
+  });
 });
