@@ -129,17 +129,22 @@ describe("deleteBackup", () => {
 });
 
 const STOPPED = JSON.stringify([
-  { Service: "dst-master", State: "exited", Status: "Exited", Publishers: null },
-  { Service: "dst-caves", State: "exited", Status: "Exited", Publishers: null }
+  { Service: "dst-server", State: "exited", Status: "Exited", Publishers: null },
 ]);
 const RUNNING = JSON.stringify([
-  { Service: "dst-master", State: "running", Status: "Up", Publishers: null },
-  { Service: "dst-caves", State: "running", Status: "Up", Publishers: null }
+  { Service: "dst-server", State: "running", Status: "Up", Publishers: null },
 ]);
 
 describe("restoreBackup", () => {
   it("服务器运行中时拒绝并抛 409", async () => {
     runComposeMock.mockResolvedValue({ stdout: RUNNING, stderr: "" });
+    await seedSave({ "cluster.ini": "x" });
+    const { name } = await createBackup(projectRoot);
+    await expect(restoreBackup(projectRoot, name)).rejects.toMatchObject({ status: 409 });
+  });
+
+  it("统一容器重启过程中拒绝恢复", async () => {
+    runComposeMock.mockResolvedValue({ stdout: JSON.stringify([{ Service: "dst-server", State: "restarting" }]), stderr: "" });
     await seedSave({ "cluster.ini": "x" });
     const { name } = await createBackup(projectRoot);
     await expect(restoreBackup(projectRoot, name)).rejects.toMatchObject({ status: 409 });

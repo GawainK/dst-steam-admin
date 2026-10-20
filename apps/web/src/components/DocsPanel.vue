@@ -42,20 +42,25 @@ cd ~/dst-steam-admin
 git pull origin main
 docker compose up -d --build admin-web admin-api
 # 浏览器强制刷新（Cmd+Shift+R / Ctrl+F5）清缓存
-# 注意：别带上 dst-master / dst-caves，重建会触发 SteamCMD 校验、白白断线重启游戏服
+# 注意：别带上 dst-server，重建会触发 SteamCMD 校验、白白断线重启游戏服
 
 # 改了 DST 脚本/模板（render-config.sh、*.ini.template）才需重建游戏镜像
-docker compose up -d --build dst-master dst-caves   # 不会重下 15GB，按 buildid 增量
+docker compose up -d --build dst-server   # 不会重下 15GB，按 buildid 增量
 
 # 让新写入的世界/模组配置生效：总览点重启，或
-docker compose restart dst-master dst-caves
+docker compose restart dst-server
+
+# 洞穴开关保存后重启 dst-server，容器内按开关启动一个或两个分片
+
+# 预装镜像与版本化构建：详见仓库 docs/dst-runtime-and-images.md
+# 切换镜像需使用 docker-compose.image.yml 与 --no-build
 
 # 存档备份/恢复（存档备份面板）
 # - 备份落在宿主机 data/backups/*.tar.gz（不含 Steam token）
 # - 恢复前必须先停服，否则被拒绝；恢复保留磁盘上现有 token
-docker compose stop dst-master dst-caves            # 恢复存档前先停服
+docker compose stop dst-server            # 恢复存档前先停服
 
 # 查看日志
-docker compose logs -f --tail=100 dst-master dst-caves
+docker compose logs -f --tail=100 dst-server
 docker compose logs --tail=200 admin-api            # 后台 API 排错`;
 </script>

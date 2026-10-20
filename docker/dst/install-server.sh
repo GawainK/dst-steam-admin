@@ -10,6 +10,21 @@ install_retry_count="${DST_INSTALL_RETRY_COUNT:-3}"
 install_retry_delay="${DST_INSTALL_RETRY_DELAY:-5}"
 server_binary="${install_root}/bin64/dontstarve_dedicated_server_nullrenderer_x64"
 app_manifest="${install_root}/steamapps/appmanifest_${app_id}.acf"
+expected_buildid="${DST_EXPECTED_BUILD_ID:-}"
+
+verify_build() {
+  if [ ! -x "${server_binary}" ]; then
+    echo "DST install completed without a server executable." >&2
+    return 1
+  fi
+  if [ -n "${expected_buildid}" ]; then
+    actual_buildid="$(awk '/"buildid"/ { gsub(/[^0-9]/, "", $NF); print $NF; exit }' "${app_manifest}")"
+    if [ "${actual_buildid}" != "${expected_buildid}" ]; then
+      echo "Expected DST build ${expected_buildid}, installed ${actual_buildid}; refusing to publish a mislabeled image." >&2
+      return 1
+    fi
+  fi
+}
 
 mkdir -p "${install_root}" "${steamcmd_root}"
 
@@ -49,6 +64,7 @@ if [ -x "${server_binary}" ] \
   && [ -n "${installed_buildid}" ] \
   && [ -n "${latest_buildid}" ] \
   && [ "${installed_buildid}" = "${latest_buildid}" ]; then
+  verify_build
   echo "DST already at latest buildid ${installed_buildid}; skipping update."
   exit 0
 fi
@@ -70,6 +86,7 @@ while [ "${attempt}" -le "${install_retry_count}" ]; do
       +login anonymous \
       +app_update "${app_id}" validate \
       +quit; then
+      verify_build
       exit 0
     fi
   else
@@ -78,6 +95,7 @@ while [ "${attempt}" -le "${install_retry_count}" ]; do
       +login anonymous \
       +app_update "${app_id}" \
       +quit; then
+      verify_build
       exit 0
     fi
   fi

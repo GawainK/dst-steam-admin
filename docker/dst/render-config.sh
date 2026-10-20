@@ -53,18 +53,20 @@ fi
 [ -n "${cluster_name}" ] || cluster_name="DST Steam Admin"
 [ -n "${game_mode}" ] || game_mode="survival"
 [ -n "${max_players}" ] || max_players="6"
-[ -n "${server_port}" ] || server_port="10999"
+if [ -z "${server_port}" ]; then
+  if [ "${shard_name}" = "Master" ]; then
+    server_port="10999"
+  else
+    server_port="11000"
+  fi
+fi
 
-# Shard (master/caves) wiring. The two shards run in separate containers but share
-# one cluster volume, so cluster.ini (written by whichever shard renders last) must be
-# identical for both. master_ip is therefore the master service's compose DNS name for
-# every shard — it is reachable from both containers, the master only binds on bind_ip
-# (0.0.0.0) and just needs caves to find it here. shard_enabled follows the admin UI's
-# enableCaves toggle (env override > server-config.json > true).
+# Both shards run in one container and share cluster.ini. Caves reaches Master
+# over loopback; enableCaves still controls the cluster's shard configuration.
 shard_bind_ip="${DST_SHARD_BIND_IP:-0.0.0.0}"
 shard_master_port="${DST_SHARD_MASTER_PORT:-10888}"
 shard_cluster_key="${DST_SHARD_CLUSTER_KEY:-dst-steam-admin-shard}"
-shard_master_ip="${DST_SHARD_MASTER_HOST:-dst-master}"
+shard_master_ip="${DST_SHARD_MASTER_HOST:-127.0.0.1}"
 shard_enabled="${DST_SHARD_ENABLED:-}"
 if [ -z "${shard_enabled}" ] && [ -f "${config_file}" ]; then
   shard_enabled="$(read_json_scalar "${config_file}" "enableCaves")"
@@ -75,9 +77,13 @@ fi
 if [ "${shard_name}" = "Master" ]; then
   is_master="true"
   shard_id="1"
+  steam_auth_port="8766"
+  steam_master_port="27016"
 else
   is_master="false"
   shard_id="2"
+  steam_auth_port="8767"
+  steam_master_port="27017"
 fi
 
 mkdir -p "${cluster_dir}/${shard_name}" "${install_root}/mods"
@@ -96,6 +102,8 @@ sed \
 
 sed \
   -e "s|{{SERVER_PORT}}|${server_port}|g" \
+  -e "s|{{STEAM_AUTH_PORT}}|${steam_auth_port}|g" \
+  -e "s|{{STEAM_MASTER_PORT}}|${steam_master_port}|g" \
   -e "s|{{IS_MASTER}}|${is_master}|g" \
   -e "s|{{SHARD_NAME}}|${shard_name}|g" \
   "${template_root}/server.ini.template" > "${cluster_dir}/${shard_name}/server.ini"

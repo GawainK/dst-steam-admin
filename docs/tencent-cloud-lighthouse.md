@@ -139,8 +139,7 @@ docker compose ps
 ```bash
 docker compose logs -f admin-api
 docker compose logs -f admin-web
-docker compose logs -f dst-master
-docker compose logs -f dst-caves
+docker compose logs -f dst-server    # 日志以 [Master] / [Caves] 区分分片
 ```
 
 ## Access

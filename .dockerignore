@@ -19,3 +19,8 @@ docs
 .DS_Store
 .vscode
 .idea
+
+# 凭据和 Python 运行缓存
+.env
+.env.*
+**/__pycache__

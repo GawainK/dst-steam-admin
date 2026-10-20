@@ -1,6 +1,10 @@
 [NETWORK]
 server_port = {{SERVER_PORT}}
 
+[STEAM]
+authentication_port = {{STEAM_AUTH_PORT}}
+master_server_port = {{STEAM_MASTER_PORT}}
+
 [SHARD]
 is_master = {{IS_MASTER}}
 name = {{SHARD_NAME}}

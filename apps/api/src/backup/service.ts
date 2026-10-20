@@ -134,7 +134,7 @@ export async function restoreBackup(projectRoot: string, name: string): Promise<
     throw new BackupError("备份不存在", 404);
   }
 
-  // 仅看容器状态，不读日志：要求两个分片都已停止
+  // 仅看容器状态，不读日志：要求统一游戏容器已停止
   const statusResult = await runCompose("status", projectRoot);
   if (parseComposeStatus(statusResult.stdout).overall !== "stopped") {
     throw new BackupError("请先停止服务器再恢复", 409);

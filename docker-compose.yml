@@ -35,46 +35,26 @@ services:
     ports:
       - "8080:80"
 
-  dst-master:
+  dst-server:
+    platform: linux/amd64
     build:
       context: .
       dockerfile: docker/dst/Dockerfile
+      target: runtime
+    # 给两个分片留出写盘退出的时间；entrypoint 会向两个进程转发停止信号。
+    stop_grace_period: 60s
     environment:
-      # 房间名/密码/模式/人数等「世界配置」由后台写入的
-      # data/cluster/admin/server-config.json 提供，render-config.sh 会读取它。
-      # 这里不再写死 DST_CLUSTER_NAME 等，否则 env 会覆盖后台配置导致改了不生效。
-      # 仅保留每个分片必需的基础设施变量。
-      DST_SERVER_PORT: "10999"
-      DST_SHARD: Master
-      # 启动时按 buildid 比对 Steam 最新版，版本相同则跳过下载、不同才更新。
-      # 想完全离线/不检查更新，可设 DST_SKIP_UPDATE: "1"（代价：不再自动更新）。
+      DST_MASTER_PORT: "10999"
+      DST_CAVES_PORT: "11000"
+      # 世界配置与洞穴开关由 data/cluster/admin/server-config.json 提供。
+      # DST_SKIP_UPDATE: "1" 可跳过已有安装的更新检查。
     volumes:
       - ./data/cluster:/var/lib/dst/cluster
       - ./data/mods:/var/lib/dst/mods
+      # 复用旧地面的安装和 SteamCMD；两个进程共享游戏文件，存档仍分别保存。
       - ./data/install/master:/opt/dst
-      # 持久化 SteamCMD 自身与其 home，避免每次重建容器重下 ~40MB 客户端。
-      # 各分片独立目录，防止并发启动时 SteamCMD 互相抢锁。
       - ./data/steamcmd/master:/opt/steamcmd
       - ./data/steamcmd/master-home:/root/Steam
     ports:
       - "10999:10999/udp"
-
-  dst-caves:
-    build:
-      context: .
-      dockerfile: docker/dst/Dockerfile
-    environment:
-      # 同 dst-master：房间名/密码/模式/人数由后台 server-config.json 提供，
-      # 不在此写死，避免 env 覆盖后台配置。仅保留分片基础设施变量。
-      DST_SERVER_PORT: "11000"
-      DST_SHARD: Caves
-      # 同 dst-master：按 buildid 比对决定是否更新；DST_SKIP_UPDATE: "1" 可关闭检查。
-    volumes:
-      - ./data/cluster:/var/lib/dst/cluster
-      - ./data/mods:/var/lib/dst/mods
-      - ./data/install/caves:/opt/dst
-      # 独立的 SteamCMD 持久化目录（与 master 分开，避免抢锁）。
-      - ./data/steamcmd/caves:/opt/steamcmd
-      - ./data/steamcmd/caves-home:/root/Steam
-    ports:
       - "11000:11000/udp"

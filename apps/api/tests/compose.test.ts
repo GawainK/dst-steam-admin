@@ -64,26 +64,19 @@ describe("buildComposeCommand", () => {
   it("maps start to the fixed compose start command", () => {
     expect(buildComposeCommand("start")).toEqual({
       command: "docker",
-      args: ["compose", "start", "dst-master", "dst-caves"]
-    });
-  });
-
-  it("allows server actions to target only the master shard", () => {
-    expect(buildComposeCommand("start", undefined, ["dst-master"])).toEqual({
-      command: "docker",
-      args: ["compose", "start", "dst-master"]
+      args: ["compose", "start", "dst-server"]
     });
   });
 
   it("maps stop and restart without accepting arbitrary shell input", () => {
     expect(buildComposeCommand("stop", "200; rm -rf /")).toEqual({
       command: "docker",
-      args: ["compose", "stop", "dst-master", "dst-caves"]
+      args: ["compose", "stop", "dst-server"]
     });
 
     expect(buildComposeCommand("restart", "$(touch hacked)")).toEqual({
       command: "docker",
-      args: ["compose", "restart", "dst-master", "dst-caves"]
+      args: ["compose", "restart", "dst-server"]
     });
   });
 
@@ -95,7 +88,7 @@ describe("buildComposeCommand", () => {
 
     expect(buildComposeCommand("logs", "20")).toEqual({
       command: "docker",
-      args: ["compose", "logs", "--tail", "20", "dst-master", "dst-caves"]
+      args: ["compose", "logs", "--tail", "20", "dst-server"]
     });
   });
 });

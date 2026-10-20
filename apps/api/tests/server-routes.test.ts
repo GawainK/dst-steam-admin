@@ -105,7 +105,7 @@ describe("server routes", () => {
 
       expect(response.status).toBe(200);
       expect(response.body).toEqual({ ok: true });
-      expect(runComposeMock).toHaveBeenCalledWith(action, process.cwd(), undefined);
+      expect(runComposeMock).toHaveBeenCalledWith(action, process.cwd());
     }
   );
 

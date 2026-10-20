@@ -10,12 +10,10 @@ vi.mock("../src/docker/compose.js", () => ({ runCompose: runComposeMock }));
 import { __resetReadyLatch, getServerStatus, runServerAction } from "../src/server/service.js";
 
 const RUNNING_STATUS = JSON.stringify([
-  { Service: "dst-master", Name: "x-dst-master-1", State: "running", Status: "Up 1 minute", Publishers: null },
-  { Service: "dst-caves", Name: "x-dst-caves-1", State: "running", Status: "Up 1 minute", Publishers: null }
+  { Service: "dst-server", Name: "x-dst-server-1", State: "running", Status: "Up 1 minute", Publishers: null },
 ]);
 const STOPPED_STATUS = JSON.stringify([
-  { Service: "dst-master", Name: "x-dst-master-1", State: "exited", Status: "Exited", Publishers: null },
-  { Service: "dst-caves", Name: "x-dst-caves-1", State: "exited", Status: "Exited", Publishers: null }
+  { Service: "dst-server", Name: "x-dst-server-1", State: "exited", Status: "Exited", Publishers: null },
 ]);
 const READY_LOGS = "Starting DST shard Master\n[00:06:59]: Server registered via geo DNS";
 const STARTING_LOGS = "Starting DST shard Master\n[00:00:00]: loaded modindex";
@@ -103,7 +101,15 @@ describe("getServerStatus readiness latch", () => {
     expect(logCalls()).toHaveLength(1);
   });
 
-  it("洞穴关闭时 server action 只操作 master 分片", async () => {
+  it.each([
+    ["starting", "starting"], ["healthy", "running"], ["unhealthy", "partial"]
+  ])("prefers container health %s over old ready logs", async (health, expected) => {
+    mockCompose(JSON.stringify([{ Service: "dst-server", State: "running", Health: health }]), READY_LOGS);
+    expect((await getServerStatus("/root")).overall).toBe(expected);
+    expect(logCalls()).toHaveLength(0);
+  });
+
+  it("洞穴关闭时 server action 仍操作统一容器", async () => {
     const root = createConfiguredProject(false);
     runComposeMock.mockResolvedValue({ stdout: "ok", stderr: "" });
 
@@ -113,8 +119,6 @@ describe("getServerStatus readiness latch", () => {
       rmSync(root, { recursive: true, force: true });
     }
 
-    expect(runComposeMock).toHaveBeenCalledWith("start", root, undefined, [
-      "dst-master"
-    ]);
+    expect(runComposeMock).toHaveBeenCalledWith("start", root);
   });
 });

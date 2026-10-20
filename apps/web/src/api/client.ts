@@ -1,8 +1,9 @@
 export interface ContainerStatus {
-  name: "dst-master" | "dst-caves";
+  name: "dst-server";
   state: string;
   status: string;
   ports: string[];
+  health?: string;
 }
 
 export interface ServerStatus {

@@ -1,8 +1,9 @@
 export interface ContainerStatus {
-  name: "dst-master" | "dst-caves";
+  name: "dst-server";
   state: string;
   status: string;
   ports: string[];
+  health?: string;
 }
 
 export interface ServerStatus {
@@ -32,7 +33,11 @@ export function isServerReady(
     return true;
   }
 
-  const currentRun = logs.slice(boundary);
+  // Caves shares stdout with Master; its readiness does not mean Master is ready.
+  const currentRun = logs.slice(boundary)
+    .split(/\r?\n/)
+    .filter((line) => !line.includes("[Caves]"))
+    .join("\n");
   return markers.some((marker) => currentRun.includes(marker));
 }
 
@@ -48,9 +53,10 @@ interface ComposeStatusEntry {
   State?: string;
   Status?: string;
   Publishers?: ComposePublisher[] | null;
+  Health?: string;
 }
 
-const TARGET_CONTAINERS = ["dst-master", "dst-caves"] as const;
+const TARGET_CONTAINERS = ["dst-server"] as const;
 const TARGET_SET = new Set<string>(TARGET_CONTAINERS);
 
 function normalizeContainerName(entry: ComposeStatusEntry): ContainerStatus["name"] | null {
@@ -88,19 +94,15 @@ function formatPublisher(publisher: ComposePublisher): string | null {
 }
 
 function resolveOverall(containers: ContainerStatus[]): ServerStatus["overall"] {
-  const runningCount = containers.filter(
-    (container) => container.state.toLowerCase() === "running"
-  ).length;
-
-  if (runningCount === TARGET_CONTAINERS.length && containers.length === TARGET_CONTAINERS.length) {
-    return "running";
-  }
-
-  if (runningCount === 0) {
+  const state = containers[0]?.state.toLowerCase();
+  if (!state || ["created", "exited", "dead"].includes(state)) {
     return "stopped";
   }
-
-  return "partial";
+  if (state === "running") {
+    return "running";
+  }
+  // Restarting/removing/unknown containers must not permit save restoration.
+  return "starting";
 }
 
 export function parseComposeStatus(output: string): ServerStatus {
@@ -123,6 +125,7 @@ export function parseComposeStatus(output: string): ServerStatus {
         name,
         state: entry.State ?? "unknown",
         status: entry.Status ?? "",
+        ...(entry.Health ? { health: entry.Health } : {}),
         ports: (entry.Publishers ?? [])
           .map((publisher) => formatPublisher(publisher))
           .filter((port): port is string => port !== null)

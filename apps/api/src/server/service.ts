@@ -1,5 +1,4 @@
-import { readServerConfig } from "../config/server-config.js";
-import { type ComposeService, runCompose } from "../docker/compose.js";
+import { runCompose } from "../docker/compose.js";
 import { isServerReady, parseComposeStatus } from "../docker/status.js";
 
 function readyMarkersFromEnv(): string[] | undefined {
@@ -23,15 +22,6 @@ export function __resetReadyLatch(): void {
   readyLatched = false;
 }
 
-async function actionServices(projectRoot: string): Promise<readonly ComposeService[] | undefined> {
-  try {
-    const config = await readServerConfig(projectRoot);
-    return config.enableCaves ? undefined : ["dst-master"];
-  } catch {
-    return undefined;
-  }
-}
-
 export async function getServerStatus(projectRoot: string) {
   const result = await runCompose("status", projectRoot);
   const status = parseComposeStatus(result.stdout);
@@ -40,6 +30,18 @@ export async function getServerStatus(projectRoot: string) {
   if (status.overall !== "running") {
     readyLatched = false;
     return status;
+  }
+
+  // New images evaluate every enabled shard internally. Always read current
+  // health, even if a previous container run was already latched as ready.
+  const health = status.containers[0]?.health;
+  if (health) {
+    readyLatched = false;
+    return {
+      ...status,
+      overall: health === "healthy" ? "running" as const
+        : health === "unhealthy" ? "partial" as const : "starting" as const
+    };
   }
 
   // 已确认就绪：稳态下跳过昂贵的日志扫描
@@ -61,12 +63,7 @@ export async function runServerAction(
   projectRoot: string,
   action: "start" | "stop" | "restart"
 ) {
-  const services = await actionServices(projectRoot);
-  if (services) {
-    await runCompose(action, projectRoot, undefined, services);
-  } else {
-    await runCompose(action, projectRoot, undefined);
-  }
+  await runCompose(action, projectRoot);
   // 用户主动启停后强制下一轮重新判定就绪
   readyLatched = false;
 }
